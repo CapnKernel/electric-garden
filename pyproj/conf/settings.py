@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     # Apps in the venv
     # Apps here
     'authuser',
+    'garden',
 ]
 
 MIDDLEWARE = [

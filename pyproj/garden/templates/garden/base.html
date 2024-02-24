@@ -1,0 +1,49 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="description" content="A planting management system for my vegetable garden" />
+        <meta name="keywords" content="plants,packets,plantings"/>
+        <title>
+            {% block title %}
+                Page Title
+            {% endblock title %}
+        </title>
+        <link rel="stylesheet" href="{% static 'css/style.css' %}" />
+        <!-- JAVASCRIPT -->
+        {#<script type="text/javascript" language="Javascript" src="http://ajax.aspnetcdn.com/ajax/jquery/jquery-1.11.3.min.js"></script>#}
+        {% block extra_head %}
+        {% endblock extra_head %}
+    </head>
+
+    <body>
+        {% if messages %}
+            <ul class="messages">
+                {% for message in messages %}
+                    <li {% if message.tags %}class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        <div class="container">
+            <div class="row">
+                <div class="twelve columns">
+                    <h1>
+                        {% block h1 %}
+                        {% endblock h1 %}
+                    </h1>
+
+                    {% block body %}
+                        <p>A fine body here.</p>
+                    {% endblock body %}
+                </div>
+            </div>
+        </div>
+
+        {% block extra_js %}
+        {% endblock extra_js %}
+    </body>
+</html>

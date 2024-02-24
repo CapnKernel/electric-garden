@@ -1,0 +1,95 @@
+{% extends "garden/base.html" %}
+
+{% block title %}
+    Electric Garden
+{% endblock title %}
+
+{% block h1 %}
+    <h1>Electric Garden</h1>
+{% endblock h1 %}
+
+{% block body %}
+    <p>Let's track some plants.</p>
+    {% if plants %}
+        <table border="1">
+            <tr>
+                <th>ID</th>
+                <th>Code</th>
+                <th>Barcode</th>
+                <th>Name</th>
+            </tr>
+            {% for plant in plants %}
+                <tr>
+                    <td align="center">
+                        {% comment %} <a href="{% url 'garden:case' case.case_number %}">{{ case.case_number }}</a> {% endcomment %}
+                        {{ plant.id }}
+                    </td>
+                    <td>{{ plant.code }}</td>
+                    <td>{{ plant.barcode }}</td>
+                    <td>{{ plant.name }}</td>
+                </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p>
+            <i>There are no plants.</i>
+        </p>
+    {% endif %}
+
+    {% if packets %}
+        <table border="1">
+            <tr>
+                <th>ID</th>
+                <th>Barcode</th>
+                <th>Plant</th>
+                <th>Brand</th>
+            </tr>
+            {% for packet in packets %}
+                <tr>
+                    <td align="center">
+                        {% comment %} <a href="{% url 'garden:case' case.case_number %}">{{ case.case_number }}</a> {% endcomment %}
+                        {{ packet.id }}
+                    </td>
+                    <td>{{ packet.barcode }}</td>
+                    <td>{{ packet.plant.name }}</td>
+                    <td>{{ packet.brand }}</td>
+                </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p>
+            <i>There are no packets.</i>
+        </p>
+    {% endif %}
+
+    {% if plantings %}
+        <table border="1">
+            <tr>
+                <th>ID</th>
+                <th>Barcode</th>
+                <th>Plant (Brand)</th>
+                <th>Planted</th>
+            </tr>
+            {% for planting in plantings %}
+                <tr>
+                    <td align="center">
+                        {% comment %} <a href="{% url 'garden:case' case.case_number %}">{{ case.case_number }}</a> {% endcomment %}
+                        {{ planting.id }}
+                    </td>
+                    <td>{{ planting.barcode }}</td>
+                    <td>{{ planting.packet.plant.name }} {{ planting.packet.brand }}</td>
+                    <td>{{ planting.planted }}</td>
+                </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+    <p>
+        <i>There are no plantings.</i>
+    </p>
+    {% endif %}
+
+    <h2>Admin</h2>
+    <p>
+        Admin: <a href="{% url 'admin:index' %}">link</a>
+    </p>
+{% endblock body %}
