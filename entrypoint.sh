@@ -14,6 +14,29 @@ if [ -z "$SECRET_KEY" ]; then
     fi
 fi
 
+# Persist the Google Sheets webhook API key across container restarts.
+# Generate once, store on the persistent /data/env volume, and print it to
+# the container log so the deployer can copy it into the Apps Script
+# project's WEBHOOK_KEY script property.
+# To set your own value instead, set SHEETS_WEBHOOK_API_KEY in the
+# environment (e.g. docker-compose.yml); it takes precedence.
+SHEETS_KEY_FILE="/data/env/sheets_webhook_api_key.txt"
+if [ -z "$SHEETS_WEBHOOK_API_KEY" ] || [ "$SHEETS_WEBHOOK_API_KEY" = "CHANGE_ME" ]; then
+    if [ -f "$SHEETS_KEY_FILE" ]; then
+        export SHEETS_WEBHOOK_API_KEY="$(cat "$SHEETS_KEY_FILE")"
+    else
+        export SHEETS_WEBHOOK_API_KEY="$(openssl rand -base64 48 | tr -d '\n')"
+        echo "$SHEETS_WEBHOOK_API_KEY" > "$SHEETS_KEY_FILE"
+    fi
+fi
+
+echo "=============================================================="
+echo "Google Sheets webhook API key (copy into the Apps Script"
+echo "project's WEBHOOK_KEY script property):"
+echo
+echo "    $SHEETS_WEBHOOK_API_KEY"
+echo "=============================================================="
+
 # Run database migrations
 python manage.py migrate --noinput
 

@@ -33,6 +33,8 @@ pytest
 
 Pytest config is in `src/pytest.ini` (`DJANGO_SETTINGS_MODULE = conf.settings`).
 
+Do not offer to run all tests unless asked.
+
 ## Settings / configuration
 
 - `src/conf/settings.py` — base settings.

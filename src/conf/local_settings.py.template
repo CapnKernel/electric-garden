@@ -35,7 +35,7 @@ DATABASES = {
 STATIC_ROOT = None
 MEDIA_ROOT = BASE_DIR / 'media/'
 
-ADMINS = [("Mitch Davis", "mjd@afork.com")]
+ADMINS = [("Mitch Davis", "mjd@garden.example.com")]
 EMAIL_DEFAULT_FROM = 'noreply@example.com'
 
 STORAGES = dict(global_settings.STORAGES)
@@ -88,7 +88,7 @@ DATABASES = {
 STATIC_ROOT = '/var/www/register-static/'
 MEDIA_ROOT = '/var/www/register-media/'
 
-ADMINS = [("Mitch Davis", "mjd@afork.com")]
+ADMINS = [("Mitch Davis", "mjd@electric-garden.example.com")]
 EMAIL_DEFAULT_FROM = 'noreply@example.com'
 
 DBBACKUP_HOSTNAME = 'website.example.com'

@@ -48,11 +48,15 @@ STATIC_URL = f'{SCRIPT_NAME}/static/'
 MEDIA_ROOT = '/data/media/'
 MEDIA_URL = f'{SCRIPT_NAME}/media/'
 
-ADMINS = [('Mitch Davis', 'mjd@afork.com')]
+ADMINS = [('Mitch Davis', 'mjd@garden.example.com')]
 EMAIL_DEFAULT_FROM = os.environ.get('EMAIL_DEFAULT_FROM')
 
+# Shared secret for the Google Sheets webhook (App Script -> Django).
+# Must match the WEBHOOK_KEY script property in the Apps Script project.
+SHEETS_WEBHOOK_API_KEY = os.environ.get('SHEETS_WEBHOOK_API_KEY')
+
 # Display name for this instance in templates. Set at deploy time.
-SITE_NAME = os.environ.get('SITE_NAME', 'App')
+SITE_NAME = os.environ.get('SITE_NAME', 'Electric Garden')
 
 STORAGES = dict(global_settings.STORAGES)
 STORAGES['dbbackup'] = {
