@@ -48,9 +48,10 @@ class Command(BaseCommand):
             return
 
         for result in results:
-            self.stdout.write(
-                f'#{result.change.pk} {result.change.sheet_name}!{result.change.range} -> {result.status}'
-            )
+            line = f'#{result.change.pk} {result.change.sheet_name}!{result.change.range} -> {result.status}'
+            if result.message:
+                line += f': {result.message}'
+            self.stdout.write(line)
 
         if options['dry_run']:
             self.stdout.write(self.style.WARNING(f'Dry run: {len(results)} change(s) would be replayed.'))

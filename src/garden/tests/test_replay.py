@@ -78,6 +78,32 @@ def test_replay_only_touches_requested_statuses(db):
     assert applied.status == SheetChangeLog.Status.APPLIED
 
 
+def test_replay_persists_conflict_message(db):
+    plant = Plant.objects.create(id=1, code='BR', name='Beetroot')
+    change = SheetChangeLog.objects.create(
+        sheet_name='Plants',
+        range='C2',
+        key='P=1',
+        column_name='Name',
+        old_values=[['Beetroot']],
+        new_values=[['Detroit']],
+    )
+    # Django-side change means the sheet's old value no longer matches.
+    plant.name = 'Kale'
+    plant.save()
+
+    results = replay()
+
+    assert results[0].status == SheetChangeLog.Status.CONFLICT
+    change.refresh_from_db()
+    assert change.status == SheetChangeLog.Status.CONFLICT
+    assert change.error_message
+    assert 'Kale' in change.error_message
+    assert change.applied_at is None
+    plant.refresh_from_db()
+    assert plant.name == 'Kale'
+
+
 def test_replay_without_processor_leaves_rows_unchanged(pending_change):
     results = replay(processor=None)
 

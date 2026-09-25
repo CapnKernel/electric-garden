@@ -220,7 +220,9 @@ def process_change(change, processor=None):
     status, message = processor(change)
 
     change.status = status
-    change.error_message = message if status == SheetChangeLog.Status.ERROR else None
+    # Keep the explanation for anything that did not apply cleanly, so a
+    # conflict or error can be understood later from the audit row alone.
+    change.error_message = message if status in (SheetChangeLog.Status.ERROR, SheetChangeLog.Status.CONFLICT) else None
     change.applied_at = timezone.now() if status == SheetChangeLog.Status.APPLIED else None
     change.save(update_fields=['status', 'error_message', 'applied_at'])
     return ProcessResult(change, status, message)
