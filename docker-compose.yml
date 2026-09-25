@@ -1,0 +1,48 @@
+name: myapp
+services:
+  myapp:
+    build:
+      context: .
+      args:
+        APP_UID: 1120 # Leave blank if you don't care about the uid/gid.
+    image: myapp:latest
+    pull_policy: build
+    container_name: myapp_web
+    volumes:
+      - static:/app/static
+      - data:/data
+    environment:
+      - DJANGO_SETTINGS_MODULE=conf.settings
+      - SITE_NAME=MyApp
+      - ALLOWED_HOSTS=myapp.afork.com,localhost
+      # For a top-level site (e.g. myapp.example.com/):
+      - SCRIPT_NAME=
+      # For a subpath site (e.g. myapp.example.com/myapp):
+      # - SCRIPT_NAME=/myapp
+      - CSRF_TRUSTED_ORIGINS=https://myapp.afork.com
+      - EMAIL_DEFAULT_FROM=noreply@afork.com
+      - EMAIL_HOST=
+      - EMAIL_PORT=
+      - EMAIL_HOST_USER=
+      - EMAIL_HOST_PASSWORD=
+      - DBBACKUP_HOSTNAME=myapp
+    networks:
+      - shared_docker_network
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      # Top-level site: Host(`myapp.afork.com`)
+      # Subpath site:   Host(`vps.example.com`) && PathPrefix(`/myapp`)
+      - "traefik.http.routers.myapp.rule=Host(`myapp.afork.com`)"
+      - "traefik.http.routers.myapp.entrypoints=websecure"
+      - "traefik.http.routers.myapp.tls=true"
+      - "traefik.http.routers.myapp.tls.certresolver=letsencrypt"
+      - "traefik.http.services.myapp.loadbalancer.server.port=8000"
+
+volumes:
+  static:
+  data:
+
+networks:
+  shared_docker_network:
+    external: true

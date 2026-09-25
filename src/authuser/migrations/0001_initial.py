@@ -6,7 +6,6 @@ import django.utils.timezone
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
@@ -26,8 +25,28 @@ class Migration(migrations.Migration):
                 ('is_superuser', models.BooleanField(default=False)),
                 ('last_login', models.DateTimeField(blank=True, null=True)),
                 ('date_joined', models.DateTimeField(default=django.utils.timezone.now)),
-                ('groups', models.ManyToManyField(blank=True, help_text='The groups this user belongs to. A user will get all permissions granted to each of their groups.', related_name='user_set', related_query_name='user', to='auth.group', verbose_name='groups')),
-                ('user_permissions', models.ManyToManyField(blank=True, help_text='Specific permissions for this user.', related_name='user_set', related_query_name='user', to='auth.permission', verbose_name='user permissions')),
+                (
+                    'groups',
+                    models.ManyToManyField(
+                        blank=True,
+                        help_text='The groups this user belongs to. A user will get all permissions granted to each of their groups.',
+                        related_name='user_set',
+                        related_query_name='user',
+                        to='auth.group',
+                        verbose_name='groups',
+                    ),
+                ),
+                (
+                    'user_permissions',
+                    models.ManyToManyField(
+                        blank=True,
+                        help_text='Specific permissions for this user.',
+                        related_name='user_set',
+                        related_query_name='user',
+                        to='auth.permission',
+                        verbose_name='user permissions',
+                    ),
+                ),
             ],
             options={
                 'verbose_name': 'User',

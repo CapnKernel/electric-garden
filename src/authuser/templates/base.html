@@ -1,0 +1,73 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="description" content="FIXME" />
+        <meta name="keywords" content="fixme,FIXME" />
+        <title>
+            {% block title %}
+                Page Title
+            {% endblock title %}
+        </title>
+        <link rel="stylesheet" href="{% static 'authuser/css/authuser.css' %}" />
+        <link href="https://cdn.jsdelivr.net/npm/fastbootstrap@2.2.0/dist/css/fastbootstrap.min.css"
+              rel="stylesheet"
+              integrity="sha256-V6lu+OdYNKTKTsVFBuQsyIlDiRWiOmtC8VQ8Lzdm2i4="
+              crossorigin="anonymous">
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+                integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
+                crossorigin="anonymous"></script>
+        {% block extra_head %}
+        {% endblock extra_head %}
+    </head>
+
+    <body>
+        {% if messages %}
+            <ul class="messages">
+                {% for message in messages %}
+                    <li {% if message.tags %}class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        <div class="container">
+            <div class="row">
+                <div class="twelve columns">
+                    {% if user.is_authenticated %}
+                        {% block extra_topbar %}
+                        {% endblock extra_topbar %}
+
+                        <p>
+                            Welcome {{ user.preferred_name }} ({{ user.email }})!
+                            <form id="logout-form" method="post" action="{% url 'logout' %}">
+                                {% csrf_token %}
+                                <button type="submit">Log out</button>
+                            </form>
+                        </p>
+                    {% elif request.path != '/accounts/login/' %}
+                        <p>
+                            Welcome! <a href="{% url 'login' %}">Log in</a>
+                        </p>
+                    {% endif %}
+                    <hr />
+
+                    <h1>
+                        {% block h1 %}
+                        {% endblock h1 %}
+                    </h1>
+
+                    <p><b>You should create base.html in the template dir of your main app</b></p>
+
+                    {% block body %}
+                        <p>A fine body here.</p>
+                    {% endblock body %}
+                </div>
+            </div>
+        </div>
+        {% block extra_js %}
+        {% endblock extra_js %}
+    </body>
+</html>

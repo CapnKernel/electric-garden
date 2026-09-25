@@ -1,0 +1,11 @@
+[tool.ruff]
+line-length = 119
+
+[tool.ruff.format]
+# Single quotes for internal strings; Ruff auto-switches to double quotes
+# when the string contains an apostrophe (per PEP 8)
+quote-style = "single"
+
+[tool.djlint]
+# Tell djLint about custom template tags, so contents are indented one level.
+custom_blocks = "partialdef"

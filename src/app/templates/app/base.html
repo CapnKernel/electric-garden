@@ -1,0 +1,182 @@
+{% load static %}
+{% load navtag %}
+{% load django_htmx %}
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="description" content="FIXME: Sample project" />
+        <meta name="keywords" content="django,sample" />
+        <title>
+            {% block title %}
+                {{ site_name }} Sample App
+            {% endblock title %}
+        </title>
+
+        <!-- Bootstrap CSS -->
+        <link href="https://cdn.jsdelivr.net/npm/fastbootstrap@2.2.0/dist/css/fastbootstrap.min.css"
+              rel="stylesheet"
+              integrity="sha256-V6lu+OdYNKTKTsVFBuQsyIlDiRWiOmtC8VQ8Lzdm2i4="
+              crossorigin="anonymous">
+
+        <!-- Custom CSS -->
+        <link rel="stylesheet" href="{% static 'css/style.css' %}" />
+
+        <!-- HTMX -->
+        {% htmx_script %}
+
+        <!-- Alpine.js -->
+        <script defer
+                src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+        {% block extra_head %}
+        {% endblock extra_head %}
+    </head>
+
+    <body hx-headers='{"x-csrftoken": "{{ csrf_token }}"}'>
+        <div id="messages-container"
+             hx-get="{% url 'app:messages_partial' %}"
+             hx-trigger="messages-updated from:body"
+             hx-swap="innerHTML">
+            {% partialdef messages-partial inline %}
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert {{ message.tags }} alert-dismissible fade show"
+                             role="alert">
+                            {{ message }}
+                            <button type="button"
+                                    class="btn-close"
+                                    data-bs-dismiss="alert"
+                                    aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endpartialdef messages-partial %}
+        </div>
+
+        <!-- Navigation -->
+        <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="{% url 'app:top' %}">FIXME: Sample app</a>
+                <button class="navbar-toggler"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    {% block nav %}
+                        {% nav text ' active' %}
+                        <ul class="navbar-nav me-auto">
+                            <li class="nav-item">
+                                <a class="nav-link{{ nav.dash }}" href='{% url "app:top" %}'>Dashboard</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link"
+                                   href="{% block item-admin-link %}{% url 'admin:index' %}{% endblock item-admin-link %}">Admin</a>
+                            </li>
+                        </ul>
+                    {% endblock nav %}
+                    <ul class="navbar-nav">
+                        {% if user.is_authenticated %}
+                            <li class="nav-item">
+                                <span class="navbar-text me-3">Welcome, {{ user.preferred_name|default:user.email }}</span>
+                            </li>
+                            <li class="nav-item">
+                                <form method="post" action="{% url 'logout' %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-light btn-sm">Logout</button>
+                                </form>
+                            </li>
+                        {% else %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'login' %}">Login</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="container mt-4">
+            <!-- Breadcrumbs -->
+            {% block breadcrumbs %}
+            {% endblock breadcrumbs %}
+
+            {% block body %}
+                <p>
+                    Classy content goes here.  Override the <tt>body</tt> block!
+                </p>
+            {% endblock body %}
+        </div>
+
+        <!-- Bootstrap JS -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+                integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
+                crossorigin="anonymous"></script>
+
+        {# djlint:off #}{% comment %}{# djlint:on #}
+        <!-- Toast container -->
+        <div id="toastContainer"
+             class="toast-container position-fixed top-0 end-0 p-3 toast-z-index"></div>
+
+        <script>
+            // Toast functionality
+            function showToast(message, type = 'success') {
+                const toastContainer = document.getElementById('toastContainer');
+                const toastId = 'toast-' + Date.now();
+
+                const toastHtml = `
+                    <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                        <div class="d-flex">
+                            <div class="toast-body">
+                                ${message}
+                            </div>
+                            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                        </div>
+                    </div>
+                `;
+
+                toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+                const toastElement = document.getElementById(toastId);
+                const toast = new bootstrap.Toast(toastElement, {
+                    delay: 5000
+                });
+                toast.show();
+
+                // Remove toast from DOM after it's hidden
+                toastElement.addEventListener('hidden.bs.toast', function() {
+                    this.remove();
+                });
+            }
+
+            // Check for URL parameters to show toasts
+            document.addEventListener('DOMContentLoaded', function() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const message = urlParams.get('message');
+                const messageType = urlParams.get('message_type') || 'success';
+
+                if (message) {
+                    showToast(message, messageType);
+                }
+            });
+        </script>
+        {% endcomment %}
+
+        {% if css_body_background_colour %}
+            <script>
+                document.body.style.backgroundColor = '{{ css_body_background_colour }}';
+            </script>
+        {% endif %}
+        {% if css_body_background_image %}
+            <script>
+                document.body.style.backgroundImage = "url('{{ css_body_background_image }}')";
+            </script>
+        {% endif %}
+        {% block extra_js %}
+        {% endblock extra_js %}
+    </body>
+</html>

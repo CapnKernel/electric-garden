@@ -1,0 +1,223 @@
+{% extends "app/base.html" %}
+{% load static %}
+{% load navtag %}
+
+{% block title %}
+    Relabel: {{ item.name }} - Inventory
+{% endblock title %}
+
+{% block nav %}
+    {% nav "items" %}
+    {{ block.super }}
+{% endblock nav %}
+
+{% block barcode_form %}
+{% endblock barcode_form %}
+
+{% block breadcrumbs %}
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{% url 'app:top' %}">Dashboard</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{% url 'app:item_list' %}">Items</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{% url 'app:item_detail' pk=item.pk %}">{{ item.name }}</a>
+            </li>
+            <li class="breadcrumb-item active">Relabel</li>
+        </ol>
+    </nav>
+{% endblock breadcrumbs %}
+
+{% block body %}
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h2 class="card-title mb-0">Relabel: {{ item.name }}</h2>
+            <code>{{ item.barcode_string }}</code>
+        </div>
+        <div class="card-body">
+            <p class="text-muted">Location: {{ item.path }}</p>
+
+            <!-- The first step's fragment is fetched on load via hx-get. -->
+            <div id="wizard-content"
+                 hx-get="{{ first_step_url }}"
+                 hx-trigger="load"
+                 hx-swap="outerHTML">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+
+            {% partialdef wizard-name %}
+                <div id="wizard-content">
+                    <!-- Progress indicator for this step. -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Step {{ step_number }} of {{ total_steps }}</span>
+                            <span>{{ current_slug|title }}</span>
+                        </div>
+                        <div class="progress" style="height: 25px;">
+                            <div class="progress-bar bg-primary progress-bar-striped progress-bar-animated"
+                                 role="progressbar"
+                                 style="width: {% widthratio step_number total_steps 100 %}%"
+                                 aria-valuenow="{{ step_number }}"
+                                 aria-valuemin="1"
+                                 aria-valuemax="{{ total_steps }}">{% widthratio step_number total_steps 100 %}%</div>
+                        </div>
+                    </div>
+                    {% if error %}
+                        <div class="alert alert-danger">{{ error }}</div>
+                    {% endif %}
+                    <form method="post"
+                          action="{% url 'app:wizard_name_hxpost' pk=item.pk %}"
+                          hx-post="{% url 'app:wizard_name_hxpost' pk=item.pk %}"
+                          hx-target="#wizard-content"
+                          hx-swap="outerHTML">
+                        {% csrf_token %}
+                        <!-- State carried forward in the request. -->
+                        <input type="hidden" name="description" value="{{ state.description }}">
+
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Item name:</label>
+                            <input type="text"
+                                   class="form-control"
+                                   id="name"
+                                   name="name"
+                                   value="{{ state.name|default:item.name }}"
+                                   aria-label="Item name"
+                                   autofocus>
+                            <div class="form-text">Give the item a clear, descriptive name.</div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">Next</button>
+                            <a href="{% url 'app:item_detail' pk=item.pk %}"
+                               class="btn btn-outline-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            {% endpartialdef wizard-name %}
+
+            {% partialdef wizard-description %}
+                <div id="wizard-content">
+                    <!-- Progress indicator for this step. -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Step {{ step_number }} of {{ total_steps }}</span>
+                            <span>{{ current_slug|title }}</span>
+                        </div>
+                        <div class="progress" style="height: 25px;">
+                            <div class="progress-bar bg-primary progress-bar-striped progress-bar-animated"
+                                 role="progressbar"
+                                 style="width: {% widthratio step_number total_steps 100 %}%"
+                                 aria-valuenow="{{ step_number }}"
+                                 aria-valuemin="1"
+                                 aria-valuemax="{{ total_steps }}">{% widthratio step_number total_steps 100 %}%</div>
+                        </div>
+                    </div>
+
+                    <form method="post"
+                          action="{% url 'app:wizard_description_hxpost' pk=item.pk %}"
+                          hx-post="{% url 'app:wizard_description_hxpost' pk=item.pk %}"
+                          hx-target="#wizard-content"
+                          hx-swap="outerHTML">
+                        {% csrf_token %}
+                        <!-- State carried forward in the request. -->
+                        <input type="hidden" name="name" value="{{ state.name }}">
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description:</label>
+                            <textarea class="form-control"
+                                      id="description"
+                                      name="description"
+                                      rows="4"
+                                      aria-label="Item description">{{ state.description|default:item.description }}</textarea>
+                            <div class="form-text">Optional. Add any details that help identify the item.</div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <!-- Back button: re-fetches step 1, including the live form
+                                 values (hx-include) so in-progress edits are preserved. -->
+                            <button type="button"
+                                    class="btn btn-outline-secondary"
+                                    hx-get="{% url 'app:wizard_name_hx' pk=item.pk %}"
+                                    hx-target="#wizard-content"
+                                    hx-swap="outerHTML"
+                                    hx-include="closest form">Back</button>
+                            <button type="submit" class="btn btn-primary">Next</button>
+                            <a href="{% url 'app:item_detail' pk=item.pk %}"
+                               class="btn btn-outline-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            {% endpartialdef wizard-description %}
+
+            {% partialdef wizard-confirm %}
+                <div id="wizard-content">
+                    <!-- Progress indicator for this step. -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Step {{ step_number }} of {{ total_steps }}</span>
+                            <span>{{ current_slug|title }}</span>
+                        </div>
+                        <div class="progress" style="height: 25px;">
+                            <div class="progress-bar bg-primary progress-bar-striped progress-bar-animated"
+                                 role="progressbar"
+                                 style="width: {% widthratio step_number total_steps 100 %}%"
+                                 aria-valuenow="{{ step_number }}"
+                                 aria-valuemin="1"
+                                 aria-valuemax="{{ total_steps }}">{% widthratio step_number total_steps 100 %}%</div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <h5 class="alert-heading">Review your changes</h5>
+                        <p class="mb-0">Confirm the details below. Changes are applied when you click Apply.</p>
+                    </div>
+
+                    <table class="table table-striped">
+                        <tbody>
+                            <tr>
+                                <th>Name</th>
+                                <td>{{ state.name }}</td>
+                            </tr>
+                            <tr>
+                                <th>Description</th>
+                                <td>{{ state.description|default:"(none)" }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <form method="post"
+                          action="{% url 'app:wizard_confirm_hxpost' pk=item.pk %}"
+                          hx-post="{% url 'app:wizard_confirm_hxpost' pk=item.pk %}"
+                          hx-target="#wizard-content"
+                          hx-swap="outerHTML">
+                        {% csrf_token %}
+                        <!-- State carried forward in the request. -->
+                        <input type="hidden" name="name" value="{{ state.name }}">
+                        <input type="hidden" name="description" value="{{ state.description }}">
+
+                        <div class="d-flex gap-2">
+                            <!-- Back button: re-fetches step 2, including the hidden
+                                 state fields (hx-include) so the values are preserved. -->
+                            <button type="button"
+                                    class="btn btn-outline-secondary"
+                                    hx-get="{% url 'app:wizard_description_hx' pk=item.pk %}"
+                                    hx-target="#wizard-content"
+                                    hx-swap="outerHTML"
+                                    hx-include="closest form">Back</button>
+                            <button type="submit" class="btn btn-success">Apply</button>
+                            <a href="{% url 'app:item_detail' pk=item.pk %}"
+                               class="btn btn-outline-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            {% endpartialdef wizard-confirm %}
+        </div>
+    </div>
+{% endblock body %}

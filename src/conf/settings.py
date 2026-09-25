@@ -11,12 +11,11 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 import os
-
+import sys
 from pathlib import Path
-from django.contrib.messages import constants as messages
 
+from django.contrib.messages import constants as messages
 from dotenv import load_dotenv
-import dj_database_url
 
 load_dotenv()  # take environment variables from .env.
 
@@ -27,13 +26,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
-SECRET_KEY = os.environ.get("SECRET_KEY")
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-# ALLOWED_HOSTS = ['*']
-
+SECRET_KEY = os.environ.get('SECRET_KEY')
 
 # Application definition
 
@@ -44,11 +37,17 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'django.contrib.sites',
     'django.contrib.staticfiles',
     # Apps in the venv
-    # Apps here
-    'authuser',
+    'dbbackup',
+    'django_navtag',
+    'django_htmx',
+    # See end of this file for debug tools
+    # Apps in this project
+    'app',
     'garden',
+    'authuser',  # Authuser must come last so `extends "base.html"` picks up app base.
 ]
 
 MIDDLEWARE = [
@@ -57,9 +56,12 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'conf.middleware.LoginRequiredExemptMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django_htmx.middleware.HtmxMiddleware',
     'conf.middleware.TimezoneMiddleware',
+    'conf.middleware.HtmxMessagesMiddleware',
 ]
 
 ROOT_URLCONF = 'conf.urls'
@@ -75,6 +77,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'conf.context_processors.site_name',
+                'app.context_processor.background_processor',  # Variables for customising the background
             ],
         },
     },
@@ -85,8 +89,7 @@ WSGI_APPLICATION = 'conf.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
-# https://utils.brntn.me/database-url/
-DATABASES = {'default': dj_database_url.config(default=f'sqlite:///{BASE_DIR / "db.sqlite3"}')}
+# Moved to local_settings.py
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -107,8 +110,27 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-AUTH_USER_MODEL = 'authuser.User'
+AUTH_USER_MODEL = 'authuser.User'  # In code, you can get the user model with; from django.contrib.auth import get_user_model; User = get_user_model()
+LOGIN_URL = '/accounts/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'
 
+# Views exempt from login requirement (matched by view name in urlpatterns)
+AUTH_EXEMPT_VIEW_NAMES = (
+    'admin:login',
+    'admin:logout',
+    'login',
+    'logout',
+    ## Good source: https://developer.mozilla.org/en-US/docs/Learn/Server-side/Django/Authentication
+    # 'password_change',
+    # 'password_change_done',
+    'password_reset',
+    'password_reset_done',
+    'password_reset_confirm',
+    'password_reset_complete',
+)
+
+HIJACK_PERMISSION_CHECK = 'hijack.permissions.superusers_and_staff'
 
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
@@ -135,14 +157,89 @@ MESSAGE_TAGS = {
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [
-    BASE_DIR / "static",
+    BASE_DIR / 'static',
     # "/var/www/static/",
 ]
 
-MEDIA_ROOT = BASE_DIR / 'media/'
 MEDIA_URL = 'media/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'WARNING',
+    },
+    'loggers': {
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['console'],
+            'level': 'INFO',  # DEBUG if you need to see what's happening with the db.
+            'propagate': False,
+        },
+    },
+}
+
+BACKGROUND_SETTINGS = {
+    'dev': {
+        'CSS_BODY_BACKGROUND_COLOUR': '#e5edf5',
+        'CSS_BODY_BACKGROUND_IMAGE': None,
+        # 'CSS_MAINWRAPPER_BACKGROUND_COLOUR': '#ffffff',
+    },
+    'test': {
+        'CSS_BODY_BACKGROUND_COLOUR': '#fff6f6',
+        'CSS_BODY_BACKGROUND_IMAGE': '/static/img/test-server-en.png',
+        # 'CSS_MAINWRAPPER_BACKGROUND_COLOUR': 'transparent',
+    },
+    'prod': {
+        'CSS_BODY_BACKGROUND_COLOUR': None,
+        # 'CSS_BODY_BACKGROUND_IMAGE': '/static/img/live-data-dont-use-en.png',
+        'CSS_BODY_BACKGROUND_IMAGE': None,
+        # 'CSS_MAINWRAPPER_BACKGROUND_COLOUR': 'transparent',
+    },
+}
+
+MAILERS = {
+    'default': {
+        'BACKEND': 'django.core.mail.backends.smtp.EmailBackend',
+        'OPTIONS': {
+            'host': os.environ.get('EMAIL_HOST'),
+            'port': os.environ.get('EMAIL_PORT'),
+            'username': os.environ.get('EMAIL_HOST_USER'),
+            'password': os.environ.get('EMAIL_HOST_PASSWORD'),
+            'use_tls': True,
+            'use_ssl': False,
+        },
+    },
+}
+
+try:
+    from .local_settings import *
+except ImportError:
+    print('Unable to load local_settings.py')
+
+PASSWORD_RESET_FROM_EMAIL = EMAIL_DEFAULT_FROM
+
+if DEBUG:
+    TESTING = any(word in sys.argv for word in ('test', 'pytest'))
+    if TESTING:
+        # EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+        pass
+    else:
+        INSTALLED_APPS.append('debug_toolbar')
+        INSTALLED_APPS.append('django_extensions')
+        MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')

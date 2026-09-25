@@ -1,0 +1,46 @@
+{% extends "app/base.html" %}
+
+{% load static %}
+{% load navtag %}
+
+{% block title %}
+    FIXME: Sample App
+{% endblock title %}
+
+{% block nav %}
+    {% nav "dash" %}
+    {{ block.super }}
+{% endblock nav %}
+
+{# FIXME: Make this page show something sensible if not logged in.  May need changes to the view. #}
+
+{% block breadcrumbs %}
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item active">Dashboard</li>
+        </ol>
+    </nav>
+{% endblock breadcrumbs %}
+
+{% block body %}
+    <h1>{{ site_name }}</h1>
+    <p>Welcome to {{ site_name }}.</p>
+    {% if user.is_authenticated %}
+        <p>Logged in as {{ user.email }}.</p>
+        <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit">Log out</button>
+        </form>
+    {% else %}
+        <p><a href="{% url 'login' %}">Log in</a></p>
+    {% endif %}
+{% endblock body %}
+
+{% block extra_js %}
+    <script>
+        // Alpine.js initialization and any dashboard-specific JavaScript
+        document.addEventListener('alpine:init', () => {
+            // Dashboard-specific Alpine.js components can be added here
+        });
+    </script>
+{% endblock extra_js %}

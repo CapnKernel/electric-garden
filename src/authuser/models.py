@@ -4,13 +4,14 @@ from django.utils import timezone
 
 # Replace this whole dir with this: https://github.com/sesh/django-authuser
 
+
 class CustomUserManager(UserManager):
     def _create_user(self, email, password, **extra_fields):
         """
         Create and save a User with the provided email and password.
         """
         if not email:
-            raise ValueError("The given email address must be set")
+            raise ValueError('The given email address must be set')
 
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
@@ -19,18 +20,18 @@ class CustomUserManager(UserManager):
         return user
 
     def create_user(self, email=None, password=None, **extra_fields):
-        extra_fields.setdefault("is_staff", False)
-        extra_fields.setdefault("is_superuser", False)
+        extra_fields.setdefault('is_staff', False)
+        extra_fields.setdefault('is_superuser', False)
         return self._create_user(email, password, **extra_fields)
 
     def create_superuser(self, email, password, **extra_fields):
-        extra_fields.setdefault("is_staff", True)
-        extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
 
-        if extra_fields.get("is_staff") is not True:
-            raise ValueError("Superuser must have is_staff=True.")
-        if extra_fields.get("is_superuser") is not True:
-            raise ValueError("Superuser must have is_superuser=True.")
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError('Superuser must have is_staff=True.')
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('Superuser must have is_superuser=True.')
 
         return self._create_user(email, password, **extra_fields)
 
@@ -44,8 +45,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     ensure compatibility with the built in management commands.
     """
 
-    email = models.EmailField(blank=True, default="", unique=True)
-    name = models.CharField(max_length=200, blank=True, default="")
+    email = models.EmailField(blank=True, default='', unique=True)
+    full_name = models.CharField(max_length=200, blank=True, default='', help_text='eg: Robert Menzies')
+    preferred_name = models.CharField(max_length=200, blank=True, default='', help_text='eg: Bob')
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
@@ -56,16 +58,14 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     objects = CustomUserManager()
 
-    USERNAME_FIELD = "email"
-    EMAIL_FIELD = "email"
+    USERNAME_FIELD = 'email'
+    EMAIL_FIELD = 'email'
     REQUIRED_FIELDS = []
 
     class Meta:
-        verbose_name = "User"
-        verbose_name_plural = "Users"
-
-    def get_full_name(self):
-        return self.name
+        verbose_name = 'User'
+        verbose_name_plural = 'Users'
 
     def get_short_name(self):
-        return self.name or self.email.split("@")[0]
+        # FIXME: Split full name and return first word.  Update test.
+        return self.preferred_name or self.full_name or self.email.split('@')[0]
