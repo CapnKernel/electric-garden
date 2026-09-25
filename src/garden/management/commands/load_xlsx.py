@@ -21,41 +21,15 @@ import graphlib
 from datetime import date, datetime
 
 import openpyxl
-from django.apps import apps
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.forms import modelform_factory
 
 from garden.models import Container, Packet, Plant, Planting
+from garden.services import field_name_for_header, model_for_sheet
 
 # Import order matters: parents must exist before children reference them.
 MODELS = [Container, Plant, Packet, Planting]
-
-# Header names that do not correspond to a model field, mapped to the field they
-# should populate.  Headers not listed here are normalised (lowercased, spaces
-# replaced with underscores) and matched against the model's fields.
-HEADER_ALIASES = {
-    '🗑': 'deleted',  # wastebasket
-    'Plant barcode': 'plant',
-    'Packet barcode': 'packet',
-    'Planting notes': 'notes',
-}
-
-# Headers that carry no model data and should be ignored.
-IGNORED_HEADERS = {
-    "seen '26",
-    'age',
-    # 'Plants.Code',
-    # 'Plants.Name',
-    # 'Plants.Brand',
-    # 'Plants.Germination',
-    # 'Plantings.Code',
-    # 'Plantings.Brand',
-    # 'Plantings.Name',
-    # 'Plantings.Full name',
-    # 'Plantings.Age',
-    # 'Plantings.Germination',
-}
 
 
 def _clean(value):
@@ -92,14 +66,6 @@ def _date(value):
     return datetime.fromisoformat(str(value)).date()
 
 
-def _model_for_sheet(sheet_name):
-    """Look up a garden model from a sheet name by dropping the plural 's'."""
-    try:
-        return apps.get_model('garden', sheet_name[:-1])
-    except LookupError:
-        return None
-
-
 class Command(BaseCommand):
     help = 'Delete all garden data and repopulate it from an .xlsx workbook.'
 
@@ -121,7 +87,7 @@ class Command(BaseCommand):
         # Compose the list of models from the workbook's sheets.
         models = []
         for sheet_name in workbook.sheetnames:
-            model = _model_for_sheet(sheet_name)
+            model = model_for_sheet(sheet_name)
             if model is not None:
                 models.append(model)
         if not models:
@@ -229,20 +195,7 @@ class Command(BaseCommand):
 
     def _field_name(self, model, header):
         """Map a sheet column name to a model field name, or None to ignore it."""
-        name = _clean(header)
-        if name is None:
-            return None
-        # Strip variation selectors (e.g. U+FE0F) so emoji headers match reliably.
-        name = name.replace('\ufe0f', '')
-        name = HEADER_ALIASES.get(name, name)
-        name = name.lower()
-        if name in IGNORED_HEADERS:
-            return None
-        name = name.replace(' ', '_')
-        for field in model._meta.get_fields():
-            if field.name == name or getattr(field, 'attname', None) == name:
-                return field.name
-        return None
+        return field_name_for_header(model, _clean(header))
 
     def _convert(self, model, field_name, value):
         """Convert a raw cell value into something suitable for a ``ModelForm``."""

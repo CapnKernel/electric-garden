@@ -4,21 +4,160 @@ Stage 2 provides the replay machinery: pending (or failed) ``SheetChangeLog``
 rows are handed to a processor, which either applies the change to the target
 Django models or records why it could not.
 
-The mapping from a sheet range to a Django model is deliberately left to a
-pluggable processor so that Stage 3's UI reconciler can reuse the same entry
-point.  Deciding what to do with problematic data is also Stage 3 work; for
-now a replay is all-or-nothing.
+The default processor (:func:`apply_change`) locates a model instance from the
+change's ``sheet_name`` and ``key`` and updates it with the change's new value.
+The sheet's column header (``column_name``) is mapped to a model field using
+the same rules as the ``load_xlsx`` importer.  The processor is pluggable so
+that Stage 3's UI reconciler can reuse the same entry point.  Deciding what to
+do with problematic data is also Stage 3 work; for now a replay is
+all-or-nothing.
 """
 
 import logging
 from dataclasses import dataclass
+from datetime import date, datetime
 
+from django.apps import apps
 from django.db import transaction
 from django.utils import timezone
 
 from .models import SheetChangeLog
 
 logger = logging.getLogger(__name__)
+
+# Header names that do not correspond to a model field, mapped to the field they
+# should populate.  Headers not listed here are normalised (lowercased, spaces
+# replaced with underscores) and matched against the model's fields.
+HEADER_ALIASES = {
+    '🗑': 'deleted',  # wastebasket
+    'Plant barcode': 'plant',
+    'Packet barcode': 'packet',
+    'Planting notes': 'notes',
+}
+
+# Headers that carry no model data and should be ignored.
+IGNORED_HEADERS = {
+    "seen '26",
+    'age',
+}
+
+
+def model_for_sheet(sheet_name):
+    """Look up a garden model from a sheet name by dropping the plural 's'."""
+    try:
+        return apps.get_model('garden', sheet_name[:-1])
+    except LookupError:
+        return None
+
+
+def field_name_for_header(model, header):
+    """Map a sheet column header to a model field name, or None to ignore it.
+
+    Mirrors the importer's rules: strip variation selectors, apply
+    ``HEADER_ALIASES``, lowercase, replace spaces with underscores, then match
+    against the model's field names and attribute names.
+    """
+    if header is None:
+        return None
+    name = str(header).strip()
+    if not name:
+        return None
+    # Strip variation selectors (e.g. U+FE0F) so emoji headers match reliably.
+    name = name.replace('\ufe0f', '')
+    name = HEADER_ALIASES.get(name, name)
+    name = name.lower()
+    if name in IGNORED_HEADERS:
+        return None
+    name = name.replace(' ', '_')
+    for field in model._meta.get_fields():
+        if field.name == name or getattr(field, 'attname', None) == name:
+            return field.name
+    return None
+
+
+def _coerce(field, value):
+    """Coerce a raw sheet value into something the field can store."""
+    if isinstance(value, str):
+        value = value.strip()
+        if value == '':
+            return None
+    if value is None:
+        return None
+    internal = field.get_internal_type()
+    if internal == 'BooleanField':
+        return str(value).strip().lower() not in ('', '0', 'false', 'no')
+    if internal == 'DateField':
+        if isinstance(value, datetime):
+            return value.date()
+        if isinstance(value, date):
+            return value
+        return datetime.fromisoformat(str(value)).date()
+    if internal in ('IntegerField', 'BigIntegerField', 'SmallIntegerField'):
+        return int(value)
+    return str(value)
+
+
+def apply_change(change):
+    """Apply one ``SheetChangeLog`` row to its target model instance.
+
+    Returns a ``(status, message)`` tuple suitable for :func:`process_change`.
+    The change must carry a ``sheet_name``, a ``key`` and a ``column_name``;
+    the key is the barcode of the row to update, and the column name is mapped
+    to a model field.  The new value is taken from ``new_values``.
+
+    If no instance exists for the key but the key is a valid barcode for the
+    model, a new instance is created with that primary key.
+    """
+    if not change.sheet_name or not change.key:
+        return SheetChangeLog.Status.ERROR, 'Change has no sheet_name or key; cannot locate a row.'
+
+    model = model_for_sheet(change.sheet_name)
+    if model is None:
+        return SheetChangeLog.Status.ERROR, f'No model found for sheet {change.sheet_name!r}.'
+
+    if not change.column_name:
+        return SheetChangeLog.Status.ERROR, 'Change has no column_name; cannot determine the field.'
+
+    field_name = field_name_for_header(model, change.column_name)
+    if field_name is None:
+        return SheetChangeLog.Status.ERROR, f'Column {change.column_name!r} does not map to a field.'
+    if field_name == 'barcode':
+        return SheetChangeLog.Status.ERROR, 'The barcode column cannot be updated.'
+
+    try:
+        pk = model.pk_from_barcode(change.key)
+    except (ValueError, AttributeError) as exc:
+        return SheetChangeLog.Status.ERROR, f'Invalid barcode {change.key!r}: {exc}'
+
+    new_value = None
+    if change.new_values:
+        new_value = change.new_values[0][0]
+
+    field = model._meta.get_field(field_name)
+    try:
+        value = _coerce(field, new_value)
+    except (TypeError, ValueError) as exc:
+        return SheetChangeLog.Status.ERROR, f'Could not convert {new_value!r} for {field_name}: {exc}'
+
+    # ``get_or_create`` keeps the lookup-and-create atomic, so two concurrent
+    # replays cannot both try to insert the same primary key.
+    try:
+        instance, created = model.objects.get_or_create(pk=pk, defaults={field_name: value})
+    except Exception as exc:  # noqa: BLE001 - surface any creation failure as an error row
+        return SheetChangeLog.Status.ERROR, f'Could not create {model.__name__} {change.key!r}: {exc}'
+
+    if created:
+        return SheetChangeLog.Status.APPLIED, f'Created {model.__name__} {change.key!r}.'
+
+    setattr(instance, field_name, value)
+    # The save runs in its own savepoint: a failure (e.g. NOT NULL) rolls back
+    # just this write, leaving the surrounding replay transaction usable.
+    try:
+        with transaction.atomic():
+            instance.save(update_fields=[field_name])
+    except Exception as exc:  # noqa: BLE001 - e.g. NOT NULL / validation failures
+        return SheetChangeLog.Status.ERROR, f'Could not save {model.__name__} {change.key!r}: {exc}'
+    return SheetChangeLog.Status.APPLIED, ''
 
 
 @dataclass
@@ -54,12 +193,16 @@ def process_change(change, processor=None):
     return ProcessResult(change, status, message)
 
 
-def replay(processor=None, statuses=None):
+def replay(processor=apply_change, statuses=None, dry_run=False):
     """Replay every change in ``statuses`` (default: pending and error).
 
     The whole replay runs inside a single atomic transaction: if any change
     raises, the transaction is rolled back and no change to the database is
     kept.  The exception propagates to the caller.
+
+    ``processor`` defaults to :func:`apply_change`.  When ``dry_run`` is true
+    the work is still performed (so errors surface) but the transaction is
+    rolled back, leaving the database untouched.
 
     Returns a list of ``ProcessResult``, one per change considered.
     """
@@ -69,4 +212,7 @@ def replay(processor=None, statuses=None):
     changes = list(SheetChangeLog.objects.filter(status__in=statuses).order_by('received_at'))
 
     with transaction.atomic():
-        return [process_change(change, processor=processor) for change in changes]
+        results = [process_change(change, processor=processor) for change in changes]
+        if dry_run:
+            transaction.set_rollback(True)
+        return results

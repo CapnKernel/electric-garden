@@ -4,22 +4,22 @@ The entire replay runs in a single atomic transaction, so if anything goes
 wrong the database is left untouched.  Deciding what to do with problematic
 data is Stage 3 work.
 
-Stage 2 ships no range-to-model mapping yet, so by default this command only
-reports what would be replayed.  Pass ``--mark-error`` to exercise the status
-transitions.
+By default each change is applied to its target model instance via
+``services.apply_change``.  Pass ``--dry-run`` to report what would happen
+without touching anything.
 
 Examples:
-    # Show what is pending / errored:
+    # Apply every pending / errored change:
     ./manage.py sheets_replay
 
-    # Move every pending row to "error" (useful for testing the transitions):
-    ./manage.py sheets_replay --mark-error
+    # Show what would be replayed, without changing anything:
+    ./manage.py sheets_replay --dry-run
 """
 
 from django.core.management.base import BaseCommand
 
 from garden.models import SheetChangeLog
-from garden.services import replay
+from garden.services import apply_change, replay
 
 
 class Command(BaseCommand):
@@ -33,25 +33,15 @@ class Command(BaseCommand):
             help='Only replay rows with this status (repeatable; default: pending and error).',
         )
         parser.add_argument(
-            '--mark-error',
+            '--dry-run',
             action='store_true',
-            help='Mark each replayed row as "error" instead of leaving it unchanged.',
+            help='Report what would be replayed without changing anything.',
         )
 
     def handle(self, *args, **options):
         statuses = options['status'] or None
 
-        if options['mark_error']:
-
-            def processor(change):
-                return SheetChangeLog.Status.ERROR, 'Marked as error by sheets_replay --mark-error.'
-
-        else:
-
-            def processor(change):
-                return change.status, 'No processor configured; left unchanged.'
-
-        results = replay(processor=processor, statuses=statuses)
+        results = replay(processor=apply_change, statuses=statuses, dry_run=options['dry_run'])
 
         if not results:
             self.stdout.write('No changes to replay.')
@@ -62,4 +52,7 @@ class Command(BaseCommand):
                 f'#{result.change.pk} {result.change.sheet_name}!{result.change.range} -> {result.status}'
             )
 
-        self.stdout.write(self.style.SUCCESS(f'Replayed {len(results)} change(s).'))
+        if options['dry_run']:
+            self.stdout.write(self.style.WARNING(f'Dry run: {len(results)} change(s) would be replayed.'))
+        else:
+            self.stdout.write(self.style.SUCCESS(f'Replayed {len(results)} change(s).'))

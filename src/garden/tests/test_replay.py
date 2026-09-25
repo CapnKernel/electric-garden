@@ -2,7 +2,7 @@
 
 import pytest
 
-from garden.models import SheetChangeLog
+from garden.models import Plant, SheetChangeLog
 from garden.services import replay
 
 
@@ -79,8 +79,29 @@ def test_replay_only_touches_requested_statuses(db):
 
 
 def test_replay_without_processor_leaves_rows_unchanged(pending_change):
-    results = replay()
+    results = replay(processor=None)
 
     assert len(results) == 1
     pending_change.refresh_from_db()
     assert pending_change.status == SheetChangeLog.Status.PENDING
+
+
+def test_replay_dry_run_rolls_back(db):
+    plant = Plant.objects.create(id=1, code='BR', name='Beetroot')
+    change = SheetChangeLog.objects.create(
+        sheet_name='Plants',
+        range='C2',
+        key='P=1',
+        column_name='Name',
+        new_values=[['Changed']],
+    )
+
+    results = replay(dry_run=True)
+
+    assert len(results) == 1
+    assert results[0].status == SheetChangeLog.Status.APPLIED
+    plant.refresh_from_db()
+    change.refresh_from_db()
+    assert plant.name == 'Beetroot'
+    assert change.status == SheetChangeLog.Status.PENDING
+    assert change.applied_at is None
