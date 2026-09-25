@@ -1,16 +1,48 @@
 from django.db import models
 
 
-class BarcodeMixin:
+class BarcodeManager(models.Manager):
+    """Manager that accepts a ``barcode`` in place of a primary key.
+
+    Foreign keys may be given as a barcode string or as a plain integer primary
+    key; both are resolved to the related instance.
+    """
+
+    def create(self, **kwargs):
+        barcode = kwargs.pop('barcode', None)
+        if barcode is not None:
+            if 'id' in kwargs:
+                raise ValueError('Specify either id or barcode, not both.')
+            kwargs['id'] = self.model.pk_from_barcode(barcode)
+        for field in self.model._meta.fields:
+            if not field.is_relation or field.name not in kwargs:
+                continue
+            value = kwargs[field.name]
+            if isinstance(value, int):
+                kwargs[field.name] = field.related_model.objects.get(pk=value)
+        return super().create(**kwargs)
+
+
+class BarcodedBase(models.Model):
     barcode_start = 0
     prefix = 'P='
 
+    objects = BarcodeManager()
+
+    class Meta:
+        abstract = True
+
     @property
     def barcode(self):
-        return f'{self.prefix}{self.id + self.barcode_start}'
+        return f'{self.prefix}{self.id}'
+
+    @classmethod
+    def pk_from_barcode(cls, barcode):
+        """Return the primary key encoded in ``barcode`` for this model."""
+        return int(barcode.removeprefix(cls.prefix))
 
 
-class Container(BarcodeMixin, models.Model):
+class Container(BarcodedBase):
     barcode_start = 1
     prefix = 'PC='
 
@@ -20,10 +52,11 @@ class Container(BarcodeMixin, models.Model):
         return self.name
 
 
-class Plant(BarcodeMixin, models.Model):
-    barcode_start = 1
+class Plant(BarcodedBase):
+    barcode_start = 0  # There won't actually be a 0, this just makes it match better with the others
 
-    code = models.CharField(max_length=10)  # Example: 'BR' or '豆DGD'
+    code = models.CharField(max_length=10, unique=True)  # Example: 'BR' or '豆DGD'
+    deleted = models.BooleanField(default=False)
     name = models.CharField(max_length=100)  # Example: 'Dwarf bean, Gourmet Delight'
     spacing = models.CharField(max_length=10, null=True, blank=True)  # Example: '15' for sowing 15cm apart
     germination = models.CharField(
@@ -41,12 +74,13 @@ class Plant(BarcodeMixin, models.Model):
         return self.name
 
 
-class Packet(BarcodeMixin, models.Model):
+class Packet(BarcodedBase):
     barcode_start = 100
 
     plant = models.ForeignKey(Plant, on_delete=models.PROTECT)
+    container = models.ForeignKey(Container, on_delete=models.PROTECT, null=True, blank=True)
     deleted = models.BooleanField(default=False)
-    location = models.CharField(max_length=10, null=True, blank=True)  # Example: 'T=1062'
+    # location = models.CharField(max_length=10, null=True, blank=True)  # Example: 'T=1062'
     brand = models.CharField(max_length=100, null=True, blank=True)  # Example: "Mr Fothergill's"
     expiry = models.CharField(null=True, blank=True)  # Example: 'Aug-20'
     full_name = models.CharField(max_length=100, null=True, blank=True)  # Example: 'Marketmore'
@@ -60,7 +94,7 @@ class Packet(BarcodeMixin, models.Model):
         return f'{self.barcode}: {self.plant.name}'
 
 
-class Planting(BarcodeMixin, models.Model):
+class Planting(BarcodedBase):
     barcode_start = 1000
 
     packet = models.ForeignKey(Packet, on_delete=models.PROTECT)

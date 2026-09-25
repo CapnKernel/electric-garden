@@ -38,7 +38,10 @@ var BASE_BACKOFF_MS = 500;
  * @param {Object} e The edit event object supplied by Apps Script.
  */
 function onSheetEdit(e) {
+  // console.log('onSheetEdit triggered at ' + new Date().toISOString());
+
   if (!e || !e.range) {
+    // console.log('No edit range in event; ignoring (not a cell edit).');
     return;
   }
 
@@ -52,14 +55,34 @@ function onSheetEdit(e) {
   }
 
   var sheet = e.range.getSheet();
+  // console.log(
+  //   'Edit on sheet "' + sheet.getName() + '" range ' + e.range.getA1Notation() +
+  //   ' (old=' + JSON.stringify(e.oldValue) + ', new=' + JSON.stringify(e.value) + ')'
+  // );
+
   var payload = {
-    sheet_id: SpreadsheetApp.getActiveSpreadsheet().getId(),
+    sheet_name: sheet.getName(),
     range: e.range.getA1Notation(),
     old_values: e.oldValue === undefined || e.oldValue === null ? null : [[e.oldValue]],
     new_values: e.value === undefined || e.value === null ? null : [[e.value]],
     timestamp: new Date().toISOString(),
     user_email: Session.getActiveUser().getEmail() || null,
   };
+
+  // Column A holds the row key.  Include it only when the edit is a single
+  // cell or lies within one row (i.e. does not span multiple rows) and the
+  // A cell is non-empty.  Otherwise the "key" property is omitted entirely.
+  if (e.range.getNumRows() === 1) {
+    var rowKey = sheet.getRange(e.range.getRow(), 1).getValue();
+    if (rowKey !== '' && rowKey !== null && rowKey !== undefined) {
+      payload.key = String(rowKey);
+      // console.log('Row key: ' + JSON.stringify(payload.key));
+    } else {
+      // console.log('Row key is empty; omitting "key" from payload.');
+    }
+  } else {
+    // console.log('Edit spans multiple rows; omitting "key" from payload.');
+  }
 
   postWithRetry(url, key, payload, sheet.getName());
 }
@@ -81,23 +104,56 @@ function postWithRetry(url, key, payload, sheetName) {
     muteHttpExceptions: true,
   };
 
+  // console.log('POSTing to ' + url + ' for ' + sheetName + '!' + payload.range);
+
   for (var attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    // console.log('Attempt ' + attempt + ' of ' + MAX_ATTEMPTS + '...');
     try {
       var response = UrlFetchApp.fetch(url, options);
       var code = response.getResponseCode();
+      var body = response.getContentText();
       if (code >= 200 && code < 300) {
-        console.log('Synced ' + sheetName + '!' + payload.range + ' (HTTP ' + code + ').');
+        // console.log('Synced ' + sheetName + '!' + payload.range + ' (HTTP ' + code + '): ' + body);
         return;
       }
-      console.error('Attempt ' + attempt + ' failed: HTTP ' + code + ' ' + response.getContentText());
+      console.error('Attempt ' + attempt + ' failed: HTTP ' + code + ' ' + body);
     } catch (err) {
       console.error('Attempt ' + attempt + ' threw: ' + err);
     }
 
     if (attempt < MAX_ATTEMPTS) {
-      Utilities.sleep(BASE_BACKOFF_MS * Math.pow(2, attempt - 1));
+      var delay = BASE_BACKOFF_MS * Math.pow(2, attempt - 1);
+      // console.log('Retrying in ' + delay + ' ms...');
+      Utilities.sleep(delay);
     }
   }
 
   console.error('Giving up after ' + MAX_ATTEMPTS + ' attempts for ' + sheetName + '!' + payload.range);
+}
+
+/**
+ * Manual test caller for `onSheetEdit`.
+ *
+ * Run this from the Apps Script editor (select `testOnSheetEdit` and press Run)
+ * to exercise the full webhook path without editing the Sheet.  It builds a
+ * fake edit event using a real range from the active spreadsheet, so
+ * `e.range.getSheet()` and `e.range.getA1Notation()` work as they do for a
+ * genuine edit.
+ *
+ * Adjust A1_NOTATION / OLD_VALUE / NEW_VALUE below to taste.
+ */
+function testOnSheetEdit() {
+  var A1_NOTATION = 'B2';
+  var OLD_VALUE = 'old';
+  var NEW_VALUE = 'new';
+
+  var range = SpreadsheetApp.getActiveSpreadsheet().getRange(A1_NOTATION);
+  var fakeEvent = {
+    range: range,
+    oldValue: OLD_VALUE,
+    value: NEW_VALUE,
+  };
+
+  console.log('Calling onSheetEdit with a fake event for range ' + A1_NOTATION + '.');
+  onSheetEdit(fakeEvent);
 }
