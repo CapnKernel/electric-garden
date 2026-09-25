@@ -92,7 +92,8 @@ class Packet(BarcodedBase):
         pass
 
     def __str__(self):
-        return f'{self.barcode}: {self.plant.name}'
+        extra = f' ({self.full_name})' if self.full_name else ''
+        return f'{self.barcode}: {self.plant.name}{extra}'
 
 
 class Planting(BarcodedBase):
