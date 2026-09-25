@@ -97,6 +97,21 @@ def _coerce(field, value):
     return str(value)
 
 
+def _as_text(value):
+    """Render a value the way a spreadsheet cell would, for comparison."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, bool):
+        return 'TRUE' if value else 'FALSE'
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value)
+
+
 def apply_change(change):
     """Apply one ``SheetChangeLog`` row to its target model instance.
 
@@ -107,6 +122,11 @@ def apply_change(change):
 
     If no instance exists for the key but the key is a valid barcode for the
     model, a new instance is created with that primary key.
+
+    Before writing, the sheet's ``old_values`` are compared against the current
+    database value.  If they differ, the row was changed in Django after the
+    sheet was read, so applying the sheet value would silently clobber that
+    change; the row is reported as ``conflict`` instead.
     """
     if not change.sheet_name or not change.key:
         return SheetChangeLog.Status.ERROR, 'Change has no sheet_name or key; cannot locate a row.'
@@ -148,6 +168,19 @@ def apply_change(change):
 
     if created:
         return SheetChangeLog.Status.APPLIED, f'Created {model.__name__} {change.key!r}.'
+
+    # Conflict check: the sheet told us what the cell held before the edit.  If
+    # the database no longer matches, someone changed it here in the meantime.
+    if change.old_values:
+        old_value = change.old_values[0][0]
+        current = _as_text(getattr(instance, field_name))
+        expected = _as_text(old_value)
+        if current != expected:
+            return (
+                SheetChangeLog.Status.CONFLICT,
+                f'{model.__name__} {change.key!r} {field_name}: sheet expected {expected!r} '
+                f'but database holds {current!r}.',
+            )
 
     setattr(instance, field_name, value)
     # The save runs in its own savepoint: a failure (e.g. NOT NULL) rolls back

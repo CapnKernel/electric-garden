@@ -119,6 +119,37 @@ def test_apply_change_coerces_boolean(plant):
     assert plant.deleted is True
 
 
+def test_apply_change_applies_when_old_value_matches(plant):
+    change = _change(old_values=[['Beetroot']], new_values=[['Detroit']])
+    status, _ = apply_change(change)
+
+    assert status == SheetChangeLog.Status.APPLIED
+    plant.refresh_from_db()
+    assert plant.name == 'Detroit'
+
+
+def test_apply_change_conflicts_when_old_value_differs(plant):
+    # The sheet thought the name was 'Beetroot', but Django now holds 'Kale'.
+    plant.name = 'Kale'
+    plant.save()
+    change = _change(old_values=[['Beetroot']], new_values=[['Detroit']])
+    status, message = apply_change(change)
+
+    assert status == SheetChangeLog.Status.CONFLICT
+    assert 'Kale' in message
+    plant.refresh_from_db()
+    assert plant.name == 'Kale'
+
+
+def test_apply_change_skips_conflict_check_without_old_values(plant):
+    change = _change(old_values=None, new_values=[['Detroit']])
+    status, _ = apply_change(change)
+
+    assert status == SheetChangeLog.Status.APPLIED
+    plant.refresh_from_db()
+    assert plant.name == 'Detroit'
+
+
 def test_apply_change_clears_nullable_value_when_blank(plant):
     plant.spacing = '15'
     plant.save()
