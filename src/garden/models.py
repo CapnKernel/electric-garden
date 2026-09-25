@@ -10,6 +10,16 @@ class BarcodeMixin:
         return f'{self.prefix}{self.id + self.barcode_start}'
 
 
+class Container(BarcodeMixin, models.Model):
+    barcode_start = 1
+    prefix = 'PC='
+
+    name = models.CharField(max_length=100)  # Example: 'Blue ribbon 1'
+
+    def __str__(self):
+        return self.name
+
+
 class Plant(BarcodeMixin, models.Model):
     barcode_start = 1
 
