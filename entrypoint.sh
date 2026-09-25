@@ -59,14 +59,14 @@ python manage.py collectstatic --noinput --clear
 # SCRIPT_NAME.  uWSGI's --manage-script-name strips the mountpoint
 # prefix from PATH_INFO before static file matching, so the URL
 # prefix in --static-map must be the bare path, not the full URL.
-# The filesystem path is always /app/static/ (the collectstatic dir).
+# The filesystem path is always /app/staticfiles/ (the collectstatic dir).
 MOUNTPOINT="${SCRIPT_NAME:-/}"
 exec uwsgi --plugin python3 \
     --virtualenv /usr/local \
     --http-socket 0.0.0.0:8000 \
     --mount "${MOUNTPOINT}=conf.wsgi:application" \
     --manage-script-name \
-    --static-map "/static/=/app/static/" \
+    --static-map "/static/=/app/staticfiles/" \
     --file-serve-mode \
     --workers=1 \
     --cheap \

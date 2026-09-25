@@ -12,7 +12,7 @@ API_KEY = 'test-api-key'
 
 def _payload():
     return {
-        'sheet_id': 'sheet-abc123',
+        'sheet_name': 'Sheet1',
         'range': 'B2',
         'old_values': [['old']],
         'new_values': [['new']],
@@ -74,7 +74,7 @@ def test_webhook_fails_closed_without_configured_key(client):
 def test_webhook_rejects_invalid_payload(client):
     response = client.post(
         WEBHOOK_URL,
-        data=json.dumps({'sheet_id': 'only-this'}),
+        data=json.dumps({'sheet_name': 'only-this'}),
         content_type='application/json',
         headers={'X-API-Key': API_KEY},
     )

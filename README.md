@@ -91,7 +91,7 @@ cd src
 ```
 
 All three read the API key from `SHEETS_WEBHOOK_API_KEY` unless `--key` is
-passed.  Use `--sheet-id`, `--range`, `--old-value` and `--new-value` to vary
+passed.  Use `--sheet-name`, `--range`, `--old-value` and `--new-value` to vary
 the sample payload.
 
 ## Deployment

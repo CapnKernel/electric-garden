@@ -114,7 +114,7 @@ To deploy under a subpath instead, uncomment `SCRIPT_NAME=/garden` and change th
 (as root):
 
 ```sh
-cd ~/electric-garden
+cd ~user/electric-garden
 docker compose up -d
 ```
 
@@ -178,8 +178,23 @@ docker compose exec garden cat /data/env/sheets_webhook_api_key.txt
 
 ### Configure the Apps Script
 
-In the Google Sheet, open **Extensions → Apps Script → Project Settings →
-Script properties** and add:
+In the Google Sheet, open **Extensions → Apps Script**.  This creates a container-bound script.
+
+**1. Change "Untitled project" to "Electric Garden data sender".
+
+**2. Copy the script files into the project.**
+
+- Replace the contents of the default `Code.gs` with
+  [`AppsScript/Code.gs`](AppsScript/Code.gs).
+- Add the manifest: **Project Settings → tick "Show `appsscript.json`
+  manifest file in editor"**, then open the `appsscript.json` file in the
+  editor and replace its contents with
+  [`AppsScript/appsscript.json`](AppsScript/appsscript.json).  This sets the
+  OAuth scopes, including `spreadsheets.currentonly` (access limited to this
+  one spreadsheet) and `script.external_request` (needed to POST to Django).
+
+**3. Add the script properties.**  In **Project Settings → Script
+properties**, add:
 
 | Property | Value |
 |---|---|
@@ -189,9 +204,15 @@ Script properties** and add:
 [`Code.gs`](AppsScript/Code.gs) reads both with
 `PropertiesService.getScriptProperties().getProperty(...)`.
 
-Then add the installable trigger: **Triggers → Add trigger → `onSheetEdit`,
+**4. Add the installable trigger.**  **Triggers → Add trigger → `onSheetEdit`,
 From spreadsheet, On edit**.  (A simple `onEdit` trigger cannot make external
 requests, so the installable trigger is required.)
+
+**5. Authorise.**  The first run prompts for consent.  Because the manifest
+declares `spreadsheets.currentonly`, the script is limited to this one
+spreadsheet even though the consent screen shows the generic Sheets wording.
+If you previously authorised a broader scope, revoke it at
+https://myaccount.google.com/permissions and re-run to re-consent.
 
 ### Test the webhook
 

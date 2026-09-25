@@ -39,11 +39,14 @@ DATABASES = {
     'default': dj_database_url.config(default=f'sqlite:////data/db/db.sqlite3'),
 }
 
-STATIC_ROOT = '/app/static'
-# Override STATICFILES_DIRS from settings.py — in Docker, STATIC_ROOT
-# is the same as the app's static source directory, so including it
-# in STATICFILES_DIRS would cause a circular reference error.
-STATICFILES_DIRS = []
+# collectstatic writes here.  This must NOT be the same directory as the
+# project's static source (BASE_DIR / 'static'), otherwise collectstatic
+# would try to copy files onto themselves.
+STATIC_ROOT = '/app/staticfiles'
+# Keep the project's own static source directory so FileSystemFinder picks
+# up robots.txt, favicon.ico, css/ and img/.  STATIC_ROOT is now a separate
+# directory, so there is no circular reference.
+STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_URL = f'{SCRIPT_NAME}/static/'
 MEDIA_ROOT = '/data/media/'
 MEDIA_URL = f'{SCRIPT_NAME}/media/'

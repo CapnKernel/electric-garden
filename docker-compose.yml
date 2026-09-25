@@ -9,7 +9,7 @@ services:
     pull_policy: build
     container_name: garden_web
     volumes:
-      - static:/app/static
+      - static:/app/staticfiles
       - data:/data
     environment:
       - DJANGO_SETTINGS_MODULE=conf.settings

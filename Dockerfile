@@ -25,7 +25,7 @@ COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh
 
 RUN (id -u user 2>/dev/null || useradd ${APP_UID:+-u ${APP_UID}} -m user) && \
-    mkdir -p /app/static /data/db /data/media /data/env /data/backups && \
+    mkdir -p /app/staticfiles /data/db /data/media /data/env /data/backups && \
     chown -R user:user /app /data
 
 USER user

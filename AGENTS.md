@@ -51,3 +51,10 @@ Do not offer to run all tests unless asked.
 - `djlint` is used for Django template linting.
 - VSCode is configured to use ruff as the Python formatter (see
   `.vscode/settings.json`, which is gitignored/local-only).
+
+## Important
+
+- As far as possible, suggest all changes to one file in one `apply_diff`.
+  Do not use multiple `apply_diff`s on the same file for one concern unless unavoidable.
+- On the VPS, do _not_ run git commands as root.  Run them as user `user`.
+

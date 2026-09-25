@@ -44,9 +44,9 @@ class Command(BaseCommand):
             help='API key to send in the X-API-Key header (default: SHEETS_WEBHOOK_API_KEY).',
         )
         parser.add_argument(
-            '--sheet-id',
-            default='test-sheet-id',
-            help='Value for the sheet_id field.',
+            '--sheet-name',
+            default='Sheet1',
+            help='Value for the sheet_name field.',
         )
         parser.add_argument(
             '--range',
@@ -70,7 +70,7 @@ class Command(BaseCommand):
             raise CommandError('No API key available. Pass --key or set SHEETS_WEBHOOK_API_KEY in the environment.')
 
         payload = {
-            'sheet_id': options['sheet_id'],
+            'sheet_name': options['sheet_name'],
             'range': options['range'],
             'old_values': [[options['old_value']]],
             'new_values': [[options['new_value']]],

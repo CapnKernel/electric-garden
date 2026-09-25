@@ -52,7 +52,7 @@ class ApiKeyAuth(APIKeyHeader):
 class SheetChangeIn(Schema):
     """Payload sent by the Google Apps Script ``onEdit`` trigger."""
 
-    sheet_id: str
+    sheet_name: str
     range: str
     key: str | None = None
     old_values: list[list[str | None]] | None = None
@@ -73,9 +73,9 @@ def sheets_webhook(request, payload: SheetChangeIn):
     Stage 1 does nothing with the data other than log it to the console.
     """
     logger.warning(
-        'Google Sheets change received: sheet_id=%s range=%s key=%s user=%s timestamp=%s\n'
+        'Google Sheets change received: sheet_name=%s range=%s key=%s user=%s timestamp=%s\n'
         '  old_values=%r\n  new_values=%r',
-        payload.sheet_id,
+        payload.sheet_name,
         payload.range,
         payload.key,
         payload.user_email,
