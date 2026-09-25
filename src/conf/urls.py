@@ -38,6 +38,11 @@ urlpatterns = [
         method_decorator(login_not_required)(RedirectView.as_view(url=static('favicon.ico'), permanent=True)),
         name='favicon',
     ),
+    path(
+        'robots.txt',
+        method_decorator(login_not_required)(RedirectView.as_view(url=static('robots.txt'), permanent=True)),
+        name='robots_txt',
+    ),
     # app handles top-level
     path('', include('app.urls')),
     path('garden/', include('garden.urls')),
