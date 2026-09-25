@@ -1,18 +1,22 @@
 """django-ninja API for receiving Google Sheets change notifications.
 
-Stage 1: minimal receiver.  The endpoint authenticates the caller with a
-shared API key and prints the received payload to the console.  Nothing is
-persisted yet — that arrives in Stage 2 with the ``SheetChangeLog`` model.
+Stage 2: every valid delivery is persisted as a ``SheetChangeLog`` row with
+status ``"pending"`` so nothing is lost and each change can be replayed or
+reconciled later.  The endpoint authenticates the caller with a shared API key.
 
 The Google Apps Script sender (``Code.gs``) POSTs to
 ``/garden/api/sheets/webhook/`` with the API key in the ``X-API-Key`` header.
 """
 
 import logging
+from datetime import datetime
 
 from django.conf import settings
+from django.utils.dateparse import parse_datetime
 from ninja import NinjaAPI, Schema
 from ninja.security import APIKeyHeader
+
+from .models import SheetChangeLog
 
 logger = logging.getLogger(__name__)
 
@@ -64,23 +68,47 @@ class SheetChangeIn(Schema):
 class SheetChangeOut(Schema):
     status: str
     message: str
+    tracking_id: int
+
+
+def _parse_timestamp(value):
+    """Parse the Apps Script ISO-8601 timestamp, returning ``None`` if unusable."""
+    if not value:
+        return None
+    parsed = parse_datetime(value)
+    if parsed is None:
+        try:
+            parsed = datetime.fromisoformat(value)
+        except ValueError:
+            logger.warning('Could not parse timestamp %r; storing null.', value)
+            return None
+    return parsed
 
 
 @api.post('/sheets/webhook/', auth=ApiKeyAuth(), response=SheetChangeOut)
 def sheets_webhook(request, payload: SheetChangeIn):
-    """Receive a change notification from Google Sheets.
+    """Receive a change notification from Google Sheets and log it.
 
-    Stage 1 does nothing with the data other than log it to the console.
+    Every valid delivery is stored as a ``SheetChangeLog`` row with status
+    ``"pending"``; the row's primary key is returned as the tracking ID.
     """
+    change = SheetChangeLog.objects.create(
+        sheet_name=payload.sheet_name,
+        range=payload.range,
+        key=payload.key,
+        old_values=payload.old_values,
+        new_values=payload.new_values,
+        edit_timestamp=_parse_timestamp(payload.timestamp),
+        user_email=payload.user_email,
+        status=SheetChangeLog.Status.PENDING,
+    )
     logger.warning(
-        'Google Sheets change received: sheet_name=%s range=%s key=%s user=%s timestamp=%s\n'
-        '  old_values=%r\n  new_values=%r',
+        'Google Sheets change logged: id=%s sheet_name=%s range=%s key=%s user=%s timestamp=%s',
+        change.pk,
         payload.sheet_name,
         payload.range,
         payload.key,
         payload.user_email,
         payload.timestamp,
-        payload.old_values,
-        payload.new_values,
     )
-    return SheetChangeOut(status='ok', message='Change received.')
+    return SheetChangeOut(status='ok', message='Change received.', tracking_id=change.pk)

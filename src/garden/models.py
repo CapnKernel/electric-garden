@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 
 class BarcodeManager(models.Manager):
@@ -109,3 +110,46 @@ class Planting(BarcodedBase):
 
     def __str__(self):
         return f'{self.barcode}: {self.packet.plant.name} on {self.planted}'
+
+
+class SheetChangeLog(models.Model):
+    """Audit log of every change received from Google Sheets.
+
+    Each row is one webhook delivery from the Apps Script ``onEdit`` trigger.
+    Rows start as ``pending`` and are later moved to ``applied``, ``conflict``
+    or ``error`` as they are reconciled against the Django models.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        APPLIED = 'applied', 'Applied'
+        CONFLICT = 'conflict', 'Conflict'
+        ERROR = 'error', 'Error'
+
+    sheet_name = models.CharField(max_length=255)
+    range = models.CharField(max_length=255)
+    key = models.CharField(max_length=255, null=True, blank=True)
+    old_values = models.JSONField(null=True, blank=True)
+    new_values = models.JSONField(null=True, blank=True)
+    edit_timestamp = models.DateTimeField(null=True, blank=True)
+    user_email = models.EmailField(null=True, blank=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    applied_at = models.DateTimeField(null=True, blank=True)
+    error_message = models.TextField(null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        'authuser.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='resolved_sheet_changes',
+    )
+    received_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['-received_at']
+        indexes = [
+            models.Index(fields=['status', '-received_at']),
+        ]
+
+    def __str__(self):
+        return f'{self.sheet_name}!{self.range} ({self.status})'
