@@ -54,6 +54,7 @@ class SheetChangeIn(Schema):
 
     sheet_id: str
     range: str
+    key: str | None = None
     old_values: list[list[str | None]] | None = None
     new_values: list[list[str | None]] | None = None
     timestamp: str | None = None
@@ -72,9 +73,11 @@ def sheets_webhook(request, payload: SheetChangeIn):
     Stage 1 does nothing with the data other than log it to the console.
     """
     logger.warning(
-        'Google Sheets change received: sheet_id=%s range=%s user=%s timestamp=%s\n  old_values=%r\n  new_values=%r',
+        'Google Sheets change received: sheet_id=%s range=%s key=%s user=%s timestamp=%s\n'
+        '  old_values=%r\n  new_values=%r',
         payload.sheet_id,
         payload.range,
+        payload.key,
         payload.user_email,
         payload.timestamp,
         payload.old_values,
