@@ -4,61 +4,11 @@ This guide walks through deploying **Electric Garden** behind [Traefik](https://
 
 **User vs root:** Git commands (clone, pull, etc.) must be run as the **non-privileged user** that owns the app files.  Docker commands must be run as **root** (e.g. via `sudo` or a root shell).
 
-## 1. Get Traefik running
-
-Go to GitHub and [Create a PAT](https://github.com/settings/personal-access-tokens) (Personal Access Token) to clone [docker-traefik](https://github.com/CapnKernel/docker-traefik) with.  Give it read-only access to the contents and metadata permissions, and restrict it to the `docker-traefik` repo.
-
-Now, clone (as the non-privileged user):
-
-```sh
-cd /home/user
-git clone https://CapnKernel:PAT@github.com/CapnKernel/docker-traefik
-cd docker-traefik
-```
-
-Then start Traefik (as root):
-
-```sh
-docker compose up -d
-```
-
-Verify Traefik is running:
-
-```sh
-docker ps
-# Look for the traefik container, ports 80, 443, and 8080
-```
-
-Traefik will auto-discover other containers on the `shared_docker_network` network via Docker labels created by apps.
-
-### Docker commands for traefik
-
-(Run all of these from `~user/docker-traefik`)
-```sh
-# See Traefik logs
-docker compose logs -f
-
-# See Traefik status
-docker compose ps
-
-# Run / start Traefik
-docker compose up -d
-
-# Restart Traefik
-docker compose restart
-
-# Stop Traefik
-docker compose down
-
-# Rebuild and run Traefik (e.g. after config changes)
-docker compose up -d --force-recreate
-```
-
-## 2. Set up DNS record
+## 1. Set up DNS record
 
 If you want a top level site, such as https://garden.example.com/, set up a DNS A or CNAME record with your DNS provider.
 
-## 3. Clone the app
+## 2. Clone the app
 
 [Create a PAT](https://github.com/settings/personal-access-tokens) for authentication, with read-only access to the content and metadata permissions, and restricted to the `electric-garden` repo.  Then clone the Electric Garden repository onto the VPS:
 
@@ -68,7 +18,7 @@ git clone https://PAT@github.com/CapnKernel/electric-garden.git
 cd ~/electric-garden
 ```
 
-## 4. Configure the Django app
+## 3. Configure the Django app
 
 [`docker-compose.yml`](docker-compose.yml) is already set up for Electric Garden.  Review it and adjust the environment variables and Traefik labels for your deployment.
 
@@ -159,7 +109,7 @@ To deploy under a subpath instead, uncomment `SCRIPT_NAME=/garden` and change th
 | Traefik rule | `Host(\`garden.example.com\`)` | `Host(\`vps.example.com\`) && PathPrefix(\`/garden\`)` | Routes matching requests to this container |
 | `SHEETS_WEBHOOK_API_KEY` | shared secret | shared secret | Authenticates the Google Sheets webhook (App Script → Django); must match the value in the Apps Script project |
 
-## 5. Deploy the app
+## 4. Deploy the app
 
 (as root):
 
@@ -175,13 +125,13 @@ This will:
 - Run migrations and collect static files on startup
 - Traefik detects the new container via labels and starts routing traffic
 
-## 6. Create a superuser
+## 5. Create a superuser
 
 ```sh
 docker compose exec garden python manage.py createsuperuser --email admin@example.com
 ```
 
-## 7. Verify
+## 6. Verify
 
 Use `curl` to check the site responds:
 
@@ -262,7 +212,7 @@ docker compose exec garden python manage.py sheets_webhook_test \
 
 A successful run prints `HTTP 200` and `Webhook accepted the payload.`
 
-## 8. Update the app
+## 7. Update the app
 
 When you push changes to `electric-garden` on GitHub, pull and redeploy on the VPS.  Take a backup **before** and **after** the pull so you can roll back if anything goes wrong:
 
@@ -426,7 +376,7 @@ docker compose exec garden pytest garden/tests/test_api.py::test_name -v
 Notes:
 
 - The service name is `garden`, so `docker compose exec garden ...` targets the running container.  The container name is `garden_web` if you prefer `docker exec garden_web pytest`.
--
+
 To run the tests in a throwaway container built from the same image (without touching the running production container):
 
 ```sh
