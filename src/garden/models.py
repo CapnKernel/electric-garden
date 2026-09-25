@@ -13,8 +13,8 @@ class BarcodeMixin:
 class Plant(BarcodeMixin, models.Model):
     barcode_start = 1
 
-    name = models.CharField(max_length=100)  # Example: 'Dwarf bean, Gourmet Delight'
     code = models.CharField(max_length=10)  # Example: 'BR' or '豆DGD'
+    name = models.CharField(max_length=100)  # Example: 'Dwarf bean, Gourmet Delight'
     spacing = models.CharField(max_length=10, null=True, blank=True)  # Example: '15' for sowing 15cm apart
     germination = models.CharField(
         max_length=10, null=True, blank=True
@@ -38,7 +38,7 @@ class Packet(BarcodeMixin, models.Model):
     deleted = models.BooleanField(default=False)
     location = models.CharField(max_length=10, null=True, blank=True)  # Example: 'T=1062'
     brand = models.CharField(max_length=100, null=True, blank=True)  # Example: "Mr Fothergill's"
-    expiry = models.DateField(null=True, blank=True)  # Example: '1-Aug-2022'
+    expiry = models.CharField(null=True, blank=True)  # Example: 'Aug-20'
     full_name = models.CharField(max_length=100, null=True, blank=True)  # Example: 'Marketmore'
     notes = models.TextField(null=True, blank=True)  # Example: 'Sow in full sun'
 
@@ -56,7 +56,7 @@ class Planting(BarcodeMixin, models.Model):
     packet = models.ForeignKey(Packet, on_delete=models.PROTECT)
     deleted = models.BooleanField(default=False)
     planted = models.DateField()
-    location = models.CharField(max_length=50, null=True, blank=True)  # Example: 'Front garden parsley box'
+    location = models.CharField(max_length=100, null=True, blank=True)  # Example: 'Front garden parsley box'
     notes = models.TextField(null=True, blank=True)  # Example: "From Kath's seedling box"
 
     class Meta:
