@@ -69,6 +69,16 @@ function onSheetEdit(e) {
     user_email: Session.getActiveUser().getEmail() || null,
   };
 
+  // The header of the edited column (row 1) names the field to update.  Only
+  // meaningful for a single-column edit; omitted otherwise.
+  if (e.range.getNumColumns() === 1) {
+    var header = sheet.getRange(1, e.range.getColumn()).getValue();
+    if (header !== '' && header !== null && header !== undefined) {
+      payload.column_name = String(header);
+      console.log('Column name: ' + JSON.stringify(payload.column_name));
+    }
+  }
+
   // Column A holds the row key.  Include it only when the edit is a single
   // cell or lies within one row (i.e. does not span multiple rows) and the
   // A cell is non-empty.  Otherwise the "key" property is omitted entirely.

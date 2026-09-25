@@ -10,8 +10,8 @@ admin.site.register(Planting)
 
 @admin.register(SheetChangeLog)
 class SheetChangeLogAdmin(admin.ModelAdmin):
-    list_display = ('received_at', 'sheet_name', 'range', 'key', 'status', 'user_email')
+    list_display = ('received_at', 'sheet_name', 'range', 'key', 'column_name', 'status', 'user_email')
     list_filter = ('status', 'sheet_name')
-    search_fields = ('sheet_name', 'range', 'key', 'user_email')
+    search_fields = ('sheet_name', 'range', 'key', 'column_name', 'user_email')
     readonly_fields = ('received_at',)
     date_hierarchy = 'received_at'

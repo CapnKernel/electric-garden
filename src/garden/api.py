@@ -59,6 +59,7 @@ class SheetChangeIn(Schema):
     sheet_name: str
     range: str
     key: str | None = None
+    column_name: str | None = None
     old_values: list[list[str | None]] | None = None
     new_values: list[list[str | None]] | None = None
     timestamp: str | None = None
@@ -96,6 +97,7 @@ def sheets_webhook(request, payload: SheetChangeIn):
         sheet_name=payload.sheet_name,
         range=payload.range,
         key=payload.key,
+        column_name=payload.column_name,
         old_values=payload.old_values,
         new_values=payload.new_values,
         edit_timestamp=_parse_timestamp(payload.timestamp),
@@ -103,11 +105,12 @@ def sheets_webhook(request, payload: SheetChangeIn):
         status=SheetChangeLog.Status.PENDING,
     )
     logger.warning(
-        'Google Sheets change logged: id=%s sheet_name=%s range=%s key=%s user=%s timestamp=%s',
+        'Google Sheets change logged: id=%s sheet_name=%s range=%s key=%s column=%s user=%s timestamp=%s',
         change.pk,
         payload.sheet_name,
         payload.range,
         payload.key,
+        payload.column_name,
         payload.user_email,
         payload.timestamp,
     )

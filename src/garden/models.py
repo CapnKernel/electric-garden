@@ -129,6 +129,7 @@ class SheetChangeLog(models.Model):
     sheet_name = models.CharField(max_length=255)
     range = models.CharField(max_length=255)
     key = models.CharField(max_length=255, null=True, blank=True)
+    column_name = models.CharField(max_length=255, null=True, blank=True)
     old_values = models.JSONField(null=True, blank=True)
     new_values = models.JSONField(null=True, blank=True)
     edit_timestamp = models.DateTimeField(null=True, blank=True)

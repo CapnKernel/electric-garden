@@ -16,6 +16,7 @@ def _payload():
     return {
         'sheet_name': 'Sheet1',
         'range': 'B2',
+        'column_name': 'Name',
         'old_values': [['old']],
         'new_values': [['new']],
         'timestamp': '2026-09-25T00:00:00Z',
@@ -107,6 +108,7 @@ def test_webhook_persists_pending_change(client):
     assert change.status == SheetChangeLog.Status.PENDING
     assert change.sheet_name == 'Sheet1'
     assert change.range == 'B2'
+    assert change.column_name == 'Name'
     assert change.old_values == [['old']]
     assert change.new_values == [['new']]
     assert change.user_email == 'gardener@example.com'
