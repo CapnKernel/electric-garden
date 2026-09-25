@@ -76,13 +76,23 @@ def field_name_for_header(model, header):
 
 
 def _coerce(field, value):
-    """Coerce a raw sheet value into something the field can store."""
+    """Coerce a raw sheet value into something the field can store.
+
+    Foreign keys are given as barcodes in the sheet, so they are resolved to
+    the related instance (mirroring the ``load_xlsx`` importer).
+    """
     if isinstance(value, str):
         value = value.strip()
         if value == '':
             return None
     if value is None:
         return None
+    if field.is_relation:
+        related = field.related_model
+        try:
+            return related.objects.get(pk=related.pk_from_barcode(str(value)))
+        except related.DoesNotExist as exc:
+            raise ValueError(f'no {related.__name__} with barcode {value!r}') from exc
     internal = field.get_internal_type()
     if internal == 'BooleanField':
         return str(value).strip().lower() not in ('', '0', 'false', 'no')

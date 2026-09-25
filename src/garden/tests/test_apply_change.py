@@ -2,7 +2,7 @@
 
 import pytest
 
-from garden.models import Plant, SheetChangeLog
+from garden.models import Container, Packet, Plant, SheetChangeLog
 from garden.services import apply_change, field_name_for_header, model_for_sheet
 
 
@@ -117,6 +117,42 @@ def test_apply_change_coerces_boolean(plant):
     assert status == SheetChangeLog.Status.APPLIED
     plant.refresh_from_db()
     assert plant.deleted is True
+
+
+def test_apply_change_resolves_foreign_key_barcode(db):
+    container = Container.objects.create(id=3, name='Blue ribbon 1')
+    packet = Packet.objects.create(id=100, plant=Plant.objects.create(id=1, code='BR', name='Beetroot'))
+    change = SheetChangeLog.objects.create(
+        sheet_name='Packets',
+        range='D2',
+        key='P=100',
+        column_name='Container',
+        new_values=[['PC=3']],
+    )
+
+    status, message = apply_change(change)
+
+    assert status == SheetChangeLog.Status.APPLIED, message
+    packet.refresh_from_db()
+    assert packet.container == container
+
+
+def test_apply_change_errors_for_unknown_foreign_key_barcode(db):
+    packet = Packet.objects.create(id=100, plant=Plant.objects.create(id=1, code='BR', name='Beetroot'))
+    change = SheetChangeLog.objects.create(
+        sheet_name='Packets',
+        range='D2',
+        key='P=100',
+        column_name='Container',
+        new_values=[['PC=999']],
+    )
+
+    status, message = apply_change(change)
+
+    assert status == SheetChangeLog.Status.ERROR
+    assert 'PC=999' in message
+    packet.refresh_from_db()
+    assert packet.container is None
 
 
 def test_apply_change_applies_when_old_value_matches(plant):
