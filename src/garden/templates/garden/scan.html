@@ -32,7 +32,7 @@
                                     <th scope="row">Last scanned</th>
                                     <td>
                                         {% if obj.last_scanned_at %}
-                                            {{ obj.last_scanned_at|date:"j-N-y" }} ({{ obj.last_scanned_at|timesince }} ago)
+                                            {{ obj.last_scanned_at|date }} ({{ obj.last_scanned_at|timesince }} ago)
                                         {% else %}
                                             <span class="text-muted">Never scanned</span>
                                         {% endif %}

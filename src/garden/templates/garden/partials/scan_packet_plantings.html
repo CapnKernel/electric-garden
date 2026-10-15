@@ -26,7 +26,7 @@
                                     <td>{{ planting.germinated|default:"-" }}</td>
                                     <td>
                                         {% if planting.last_scanned_at %}
-                                            {{ planting.last_scanned_at|date:"j-N-y" }} ({{ planting.last_scanned_at|timesince }} ago)
+                                            {{ planting.last_scanned_at|date }} ({{ planting.last_scanned_at|timesince }} ago)
                                         {% else %}
                                             <span class="text-muted">Never</span>
                                         {% endif %}

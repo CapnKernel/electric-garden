@@ -182,7 +182,7 @@ class Planting(BarcodedBase):
         return first.date if first else None
 
     def __str__(self):
-        when = f' on {self.first_event_date}' if self.first_event_date else ''
+        when = f' planted {first_event_date:%d-%b-%Y}' if (first_event_date := self.first_event_date) else ''
         return f'{self.barcode}: {self.packet.plant.name}{when}'
 
 

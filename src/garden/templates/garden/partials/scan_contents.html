@@ -48,7 +48,7 @@
                                         <td>{{ item.planting.packet.expiry|default:"" }}</td>
                                         <td>
                                             {% if item.planting.last_scanned_at %}
-                                                {{ item.planting.last_scanned_at|date:"j-N-y" }} ({{ item.planting.last_scanned_at|timesince }} ago)
+                                                {{ item.planting.last_scanned_at|date }} ({{ item.planting.last_scanned_at|timesince }} ago)
                                             {% else %}
                                                 <span class="text-muted">Never</span>
                                             {% endif %}
@@ -74,7 +74,7 @@
                                         <td>{{ item.expiry|default:"" }}</td>
                                         <td>
                                             {% if item.last_scanned_at %}
-                                                {{ item.last_scanned_at|date:"j-N-y" }} ({{ item.last_scanned_at|timesince }} ago)
+                                                {{ item.last_scanned_at|date }} ({{ item.last_scanned_at|timesince }} ago)
                                             {% else %}
                                                 <span class="text-muted">Never</span>
                                             {% endif %}

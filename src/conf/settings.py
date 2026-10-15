@@ -146,7 +146,7 @@ USE_TZ = True
 USE_I18N = False
 USE_L10N = False
 
-DATE_FORMAT = 'j-N-Y'
+DATE_FORMAT = 'j-M-y'
 
 MESSAGE_TAGS = {
     messages.DEBUG: 'alert-secondary',

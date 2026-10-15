@@ -53,10 +53,6 @@ services:
       - EMAIL_HOST_USER=
       - EMAIL_HOST_PASSWORD=
       - DBBACKUP_HOSTNAME=garden
-      # Shared secret for the Google Sheets webhook (App Script -> Django).
-      # Leave as CHANGE_ME to have entrypoint.sh generate one on first start
-      # (it is printed to the container log); or set your own value here.
-      - SHEETS_WEBHOOK_API_KEY=CHANGE_ME
     networks:
       - shared_docker_network
     restart: unless-stopped
@@ -107,7 +103,6 @@ To deploy under a subpath instead, uncomment `SCRIPT_NAME=/garden` and change th
 | `ALLOWED_HOSTS` | `garden.example.com,localhost` | `vps.example.com,localhost` | Must match the Host header Traefik forwards |
 | `CSRF_TRUSTED_ORIGINS` | `https://garden.example.com` | `https://vps.example.com` | Required for POST requests over HTTPS |
 | Traefik rule | `Host(\`garden.example.com\`)` | `Host(\`vps.example.com\`) && PathPrefix(\`/garden\`)` | Routes matching requests to this container |
-| `SHEETS_WEBHOOK_API_KEY` | shared secret | shared secret | Authenticates the Google Sheets webhook (App Script → Django); must match the value in the Apps Script project |
 
 ## 4. Deploy the app
 
@@ -149,89 +144,6 @@ From your web browser:
 - App (subpath): `https://vps.example.com/garden/`
 - Admin (subpath): `https://vps.example.com/garden/office/`
 - Traefik dashboard: `http://localhost:8080/` (use ssh port forwarding)
-
-## 7a. Set up the Google Sheets webhook
-
-The Google Sheets → Django sync receives changes at
-`POST /garden/api/sheets/webhook/`, authenticated with the `X-API-Key` header.
-The key is the shared secret `SHEETS_WEBHOOK_API_KEY`, which must match the
-`WEBHOOK_KEY` script property in the Apps Script project.
-
-### How the key is generated
-
-[`entrypoint.sh`](entrypoint.sh) generates the key automatically on first
-start if `SHEETS_WEBHOOK_API_KEY` is unset or left as `CHANGE_ME`.  It is
-stored on the persistent `/data/env` volume (so it survives restarts and
-updates) and **printed to the container log** so the deployer can copy it.
-
-To use your own key instead, set `SHEETS_WEBHOOK_API_KEY` in
-[`docker-compose.yml`](docker-compose.yml) and restart the container; the
-explicit value takes precedence over the generated one.
-
-### Retrieve the key
-
-After the container is running, retrieve the key from the `/data/env` volume:
-
-```sh
-docker compose exec garden cat /data/env/sheets_webhook_api_key.txt
-```
-
-### Configure the Apps Script
-
-In the Google Sheet, open **Extensions → Apps Script**.  This creates a container-bound script.
-
-**1. Change "Untitled project" to "Electric Garden data sender".
-
-**2. Copy the script files into the project.**
-
-- Replace the contents of the default `Code.gs` with
-  [`AppsScript/Code.gs`](AppsScript/Code.gs).
-- Add the manifest: **Project Settings → tick "Show `appsscript.json`
-  manifest file in editor"**, then open the `appsscript.json` file in the
-  editor and replace its contents with
-  [`AppsScript/appsscript.json`](AppsScript/appsscript.json).  This sets the
-  OAuth scopes, including `spreadsheets.currentonly` (access limited to this
-  one spreadsheet) and `script.external_request` (needed to POST to Django).
-
-**3. Add the script properties.**  In **Project Settings → Script
-properties**, add:
-
-| Property | Value |
-|---|---|
-| `WEBHOOK_URL` | `https://garden.example.com/garden/api/sheets/webhook/` |
-| `WEBHOOK_KEY` | the key retrieved above |
-
-[`Code.gs`](AppsScript/Code.gs) reads both with
-`PropertiesService.getScriptProperties().getProperty(...)`.
-
-**4. Add the installable trigger.**  **Triggers → Add trigger → `onSheetEdit`,
-From spreadsheet, On edit**.  (A simple `onEdit` trigger cannot make external
-requests, so the installable trigger is required.)
-
-**5. Authorise.**  The first run prompts for consent.  Because the manifest
-declares `spreadsheets.currentonly`, the script is limited to this one
-spreadsheet even though the consent screen shows the generic Sheets wording.
-If you previously authorised a broader scope, revoke it at
-https://myaccount.google.com/permissions and re-run to re-consent.
-
-### Test the webhook
-
-From the VPS host (the command needs the key, which is not visible to a
-host-side `manage.py` unless you pass it):
-
-```sh
-docker compose exec garden python manage.py sheets_webhook_test --in-process
-```
-
-Or against the live URL, passing the key explicitly:
-
-```sh
-docker compose exec garden python manage.py sheets_webhook_test \
-    --url https://garden.example.com/garden/api/sheets/webhook/ \
-    --key "$(docker compose exec -T garden cat /data/env/sheets_webhook_api_key.txt)"
-```
-
-A successful run prints `HTTP 200` and `Webhook accepted the payload.`
 
 ## 7. Update the app
 
@@ -294,7 +206,6 @@ For a **subpath site** (e.g. `https://vps.example.com/garden`), set `SCRIPT_NAME
 | `EMAIL_HOST_USER` | SMTP username |
 | `EMAIL_HOST_PASSWORD` | SMTP password |
 | `DBBACKUP_HOSTNAME` | Instance identifier in backup filenames (currently `garden`) |
-| `SHEETS_WEBHOOK_API_KEY` | Shared secret authenticating the Google Sheets webhook (App Script → Django) |
 
 ## Docker management
 
