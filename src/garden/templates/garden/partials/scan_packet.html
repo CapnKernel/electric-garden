@@ -1,0 +1,39 @@
+{# Detail rows for a scanned Packet.  Expects ``obj`` to be a Packet. #}
+<tr>
+    <th scope="row">Plant</th>
+    <td>
+        <a href="{{ obj.plant.scan_url }}">{{ obj.plant.name }}</a>
+    </td>
+</tr>
+{% if obj.container %}
+    <tr>
+        <th scope="row">Container</th>
+        <td>
+            <a href="{{ obj.container.scan_url }}">{{ obj.container.name }}</a>
+        </td>
+    </tr>
+{% endif %}
+{% if obj.brand %}
+    <tr>
+        <th scope="row">Brand</th>
+        <td>{{ obj.brand }}</td>
+    </tr>
+{% endif %}
+{% if obj.full_name %}
+    <tr>
+        <th scope="row">Full name</th>
+        <td>{{ obj.full_name }}</td>
+    </tr>
+{% endif %}
+{% if obj.expiry %}
+    <tr>
+        <th scope="row">Expiry</th>
+        <td>{{ obj.expiry }}</td>
+    </tr>
+{% endif %}
+{% if obj.notes %}
+    <tr>
+        <th scope="row">Notes</th>
+        <td>{{ obj.notes }}</td>
+    </tr>
+{% endif %}

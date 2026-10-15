@@ -6,6 +6,11 @@ produced by ``Electric garden.xlsx``.  All existing garden data is deleted and
 the workbook is re-imported inside a single transaction, so a failure leaves the
 database untouched.
 
+The ``Plantings`` sheet also carries the planting's date, container, location
+and notes.  These no longer live on ``Planting``; they now live on
+``PlantingEvent``, so a ``planted`` event is created for each planting that has
+a date (mirroring the backfill in migration 0018).
+
 Each sheet's first row is a header naming the model fields to populate.  The
 first column is always the barcode, which is translated back into a primary key
 via the model's ``pk_from_barcode``.  Foreign keys are given as barcodes and
@@ -25,11 +30,20 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.forms import modelform_factory
 
-from garden.models import Container, Packet, Plant, Planting
+from garden.models import Container, Packet, Plant, Planting, PlantingEvent
 from garden.services import field_name_for_header, model_for_sheet
 
 # Import order matters: parents must exist before children reference them.
 MODELS = [Container, Plant, Packet, Planting]
+
+# Columns on the ``Plantings`` sheet that describe the planting's initial event.
+# These no longer exist on ``Planting``; they live on ``PlantingEvent``.
+PLANTING_EVENT_COLUMNS = {
+    'Planted': 'date',
+    'PlantedIn': 'planted_in',
+    'Location': 'location',
+    'Planting notes': 'notes',
+}
 
 
 def _clean(value):
@@ -187,11 +201,57 @@ class Command(BaseCommand):
                 self.stderr.write(f'Skipping {model.__name__} {row[0]}:')
                 self.stderr.write(form.errors.as_text())
                 self.stderr.write(f'  raw values: {raw}')
+                self.stderr.write(f'  data values: {data}')
                 continue
             # ``objects.create`` translates the barcode into a primary key.
-            model.objects.create(**data)
+            try:
+                instance = model.objects.create(**data)
+            except ValueError as exc:
+                self.stderr.write(f'Skipping {model.__name__} {row[0]}: could not create: {exc}')
+                self.stderr.write(f'  data: {data}')
+                self.stderr.write(f'  raw values: {raw}')
+                continue
+            if model is Planting:
+                self._create_planting_event(instance, row, header)
             count += 1
         return count
+
+    def _create_planting_event(self, planting, row, header):
+        """Create the initial ``planted`` event for a planting from the sheet.
+
+        Mirrors the backfill in migration 0018: the legacy ``Plantings`` sheet
+        carries the planting's date, container, location and notes in columns
+        that no longer exist on ``Planting``; they now live on
+        ``PlantingEvent``.  A ``planted`` event is created for each planting
+        that has a date.
+        """
+        values = {}
+        for index, title in enumerate(header):
+            field = PLANTING_EVENT_COLUMNS.get(_clean(title))
+            if field is None or index >= len(row):
+                continue
+            values[field] = row[index]
+
+        date = _date(values.get('date'))
+        if date is None:
+            return
+
+        planted_in = None
+        barcode = _clean(values.get('planted_in'))
+        if barcode:
+            try:
+                planted_in = Container.objects.filter(pk=Container.pk_from_barcode(barcode)).first()
+            except ValueError:
+                planted_in = None
+
+        PlantingEvent.objects.create(
+            planting=planting,
+            event_type=PlantingEvent.EventType.PLANTED,
+            date=date,
+            planted_in=planted_in,
+            location=_text(values.get('location')),
+            notes=_text(values.get('notes')),
+        )
 
     def _field_name(self, model, header):
         """Map a sheet column name to a model field name, or None to ignore it."""

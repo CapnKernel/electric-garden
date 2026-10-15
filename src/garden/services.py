@@ -1,4 +1,8 @@
-"""Reconciliation services for Google Sheets change logs.
+"""HISTORICAL / INACTIVE: reconciliation services for Google Sheets changes.
+
+This module is retained for reference only.  The ``SheetChangeLog`` model has
+been dropped, so this module no longer imports or runs.  Do not re-enable
+without restoring the model.
 
 Stage 2 provides the replay machinery: pending (or failed) ``SheetChangeLog``
 rows are handed to a processor, which either applies the change to the target
@@ -21,7 +25,14 @@ from django.apps import apps
 from django.db import transaction
 from django.utils import timezone
 
-from .models import SheetChangeLog
+# ``SheetChangeLog`` was dropped from the models (see migration 0018), so the
+# replay machinery below can no longer run.  The import is guarded so that the
+# header-mapping helpers (used by ``load_xlsx``) remain importable; the replay
+# functions raise a clear error if called without the model.
+try:
+    from .models import SheetChangeLog
+except ImportError:  # pragma: no cover - the model has been removed
+    SheetChangeLog = None
 
 logger = logging.getLogger(__name__)
 
@@ -33,12 +44,17 @@ HEADER_ALIASES = {
     'Plant barcode': 'plant',
     'Packet barcode': 'packet',
     'Planting notes': 'notes',
+    'PlantedIn': 'planted_in',
 }
 
-# Headers that carry no model data and should be ignored.
+# Headers that carry no model data and should be ignored.  An entry may be a
+# bare header (e.g. ``'age'``), ignored for every model, or a dotted
+# ``Model.header`` scope (e.g. ``'Packet.germination'``), ignored only for that
+# model.
 IGNORED_HEADERS = {
     "seen '26",
     'age',
+    'Packet.germination',
 }
 
 
@@ -48,6 +64,20 @@ def model_for_sheet(sheet_name):
         return apps.get_model('garden', sheet_name[:-1])
     except LookupError:
         return None
+
+
+def is_ignored_header(header, model=None):
+    """Return True if the header is one we deliberately do not sync.
+
+    A bare entry in ``IGNORED_HEADERS`` matches any model.  A dotted
+    ``Model.header`` entry matches only when ``model`` is that model.
+    """
+    if header is None:
+        return False
+    name = str(header).strip().lower()
+    if name in IGNORED_HEADERS:
+        return True
+    return model is not None and f'{model.__name__}.{name}' in IGNORED_HEADERS
 
 
 def field_name_for_header(model, header):
@@ -66,7 +96,7 @@ def field_name_for_header(model, header):
     name = name.replace('\ufe0f', '')
     name = HEADER_ALIASES.get(name, name)
     name = name.lower()
-    if name in IGNORED_HEADERS:
+    if is_ignored_header(name, model):
         return None
     name = name.replace(' ', '_')
     for field in model._meta.get_fields():
@@ -122,6 +152,15 @@ def _as_text(value):
     return str(value)
 
 
+def _require_sheet_change_log():
+    """Raise if the (dropped) ``SheetChangeLog`` model is unavailable."""
+    if SheetChangeLog is None:
+        raise RuntimeError(
+            'SheetChangeLog has been removed from the models; the Google Sheets '
+            'replay machinery is inactive and cannot run.'
+        )
+
+
 def apply_change(change):
     """Apply one ``SheetChangeLog`` row to its target model instance.
 
@@ -138,6 +177,7 @@ def apply_change(change):
     sheet was read, so applying the sheet value would silently clobber that
     change; the row is reported as ``conflict`` instead.
     """
+    _require_sheet_change_log()
     if not change.sheet_name or not change.key:
         return SheetChangeLog.Status.ERROR, 'Change has no sheet_name or key; cannot locate a row.'
 
@@ -147,6 +187,10 @@ def apply_change(change):
 
     if not change.column_name:
         return SheetChangeLog.Status.ERROR, 'Change has no column_name; cannot determine the field.'
+
+    # A column we deliberately do not sync (e.g. "Seen '26") is not a failure.
+    if is_ignored_header(change.column_name, model):
+        return SheetChangeLog.Status.SKIPPED, f'Column {change.column_name!r} is not synced.'
 
     field_name = field_name_for_header(model, change.column_name)
     if field_name is None:
@@ -169,6 +213,22 @@ def apply_change(change):
     except (TypeError, ValueError) as exc:
         return SheetChangeLog.Status.ERROR, f'Could not convert {new_value!r} for {field_name}: {exc}'
 
+    # A single-cell edit cannot supply the other required fields, so refuse to
+    # create a row that would be incomplete.  Checked before the insert so the
+    # failure is reported clearly rather than as a raw NOT NULL error.
+    if not model.objects.filter(pk=pk).exists():
+        missing = [
+            f.name
+            for f in model._meta.fields
+            if not f.null and not f.blank and not f.has_default() and f.name not in (field_name, 'id')
+        ]
+        if missing:
+            return (
+                SheetChangeLog.Status.ERROR,
+                f'Cannot create {model.__name__} {change.key!r} from a single cell; '
+                f'missing required field(s): {", ".join(missing)}.',
+            )
+
     # ``get_or_create`` keeps the lookup-and-create atomic, so two concurrent
     # replays cannot both try to insert the same primary key.
     try:
@@ -188,8 +248,7 @@ def apply_change(change):
         if current != expected:
             return (
                 SheetChangeLog.Status.CONFLICT,
-                f'{model.__name__} {change.key!r} {field_name}: sheet expected {expected!r} '
-                f'but database holds {current!r}.',
+                f'{model.__name__} {change.key!r} {field_name}: sheet expected {expected!r} but database holds {current!r}.',
             )
 
     setattr(instance, field_name, value)
@@ -224,6 +283,7 @@ def process_change(change, processor=None):
     that wants to record a failure without aborting should return
     ``(Status.ERROR, message)`` instead of raising an exception.
     """
+    _require_sheet_change_log()
     if processor is None:
         return ProcessResult(change, change.status, 'No processor configured; left unchanged.')
 
@@ -231,8 +291,9 @@ def process_change(change, processor=None):
 
     change.status = status
     # Keep the explanation for anything that did not apply cleanly, so a
-    # conflict or error can be understood later from the audit row alone.
-    change.error_message = message if status in (SheetChangeLog.Status.ERROR, SheetChangeLog.Status.CONFLICT) else None
+    # conflict, error or skip can be understood later from the audit row alone.
+    explained = (SheetChangeLog.Status.ERROR, SheetChangeLog.Status.CONFLICT, SheetChangeLog.Status.SKIPPED)
+    change.error_message = message if status in explained else None
     change.applied_at = timezone.now() if status == SheetChangeLog.Status.APPLIED else None
     change.save(update_fields=['status', 'error_message', 'applied_at'])
     return ProcessResult(change, status, message)
@@ -251,6 +312,7 @@ def replay(processor=apply_change, statuses=None, dry_run=False):
 
     Returns a list of ``ProcessResult``, one per change considered.
     """
+    _require_sheet_change_log()
     if statuses is None:
         statuses = [SheetChangeLog.Status.PENDING, SheetChangeLog.Status.ERROR]
 

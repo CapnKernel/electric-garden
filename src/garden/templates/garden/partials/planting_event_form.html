@@ -1,0 +1,48 @@
+{# Form for creating or editing a PlantingEvent.  Expects ``planting``, ``form`` and ``event``. #}
+<div id="scan-result">
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="h5 mb-0">
+                {% if event %}
+                    Edit event
+                {% else %}
+                    New event
+                {% endif %}
+            </h3>
+        </div>
+        <div class="card-body">
+            <form hx-post="{% if event %}{% url 'planting_event_edit' pk=event.pk %}{% else %}{% url 'planting_event_create' pk=planting.pk %}{% endif %}"
+                  hx-target="#scan-result"
+                  hx-swap="outerHTML">
+                {% csrf_token %}
+                {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {% if field.name == 'date' %}
+                            <div class="input-group">
+                                {{ field }}
+                                <button type="button"
+                                        class="btn btn-primary"
+                                        onclick="setToday('{{ field.id_for_label }}')">Today</button>
+                            </div>
+                        {% else %}
+                            {{ field }}
+                        {% endif %}
+                        {% if field.help_text %}
+                            <div class="form-text">{{ field.help_text }}</div>
+                        {% endif %}
+                        {% for error in field.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+                <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                <button type="button"
+                        class="btn btn-secondary btn-sm"
+                        hx-get="{% url 'planting_result' pk=planting.pk %}"
+                        hx-target="#scan-result"
+                        hx-swap="outerHTML">Cancel</button>
+            </form>
+        </div>
+    </div>
+</div>

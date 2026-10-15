@@ -1,12 +1,13 @@
-# Project context for AI coding assistants
-
 This file provides persistent context that should be read at the start of every
 session. Keep it up to date as the project evolves.
 
+Django project for managing planting in a garden.
+
+# Project context for AI coding assistants
+
 ## Project overview
 
-Django project for managing planting in a garden. The Django app
-lives under `src/`. Production runs in Docker (see `Dockerfile` and
+The Django app lives under `src/`. Production runs in Docker (see `Dockerfile` and
 `docker-compose.yml`); local development runs without Docker.
 
 ## Virtual environment
@@ -55,6 +56,14 @@ Do not offer to run all tests unless asked.
 ## Important
 
 - As far as possible, suggest all changes to one file in one `apply_diff`.
-  Do not use multiple `apply_diff`s on the same file for one concern unless unavoidable.
+  Do not use multiple `apply_diff`s on the same file for one concern unless unavoidable.  Exception: Writing to `ai-assistance/planting-plan.md`.  For this file, apply differences in discrete chunks.
 - On the VPS, do _not_ run git commands as root.  Run them as user `user`.
+
+# Project context for AI farming assistants
+
+* Farm location: Blackwarry, Victoria, Australia.  There's not a lot of information online about Blackwarry, so you should keep in mind that it's at the Eastern end of the Strzelecki Ranges.
+* Elevation: 620m
+* Rainfall: Around 1000mm per annum.  Relatively uniform annual rainfall, but drier in summer.
+* Climate: Mediterranean, Köppen Cfb, Southern hemisphere (note mapping between seasons and calendar months.
+* Likely USDA zones: Cold: 9b; Heat: 4
 

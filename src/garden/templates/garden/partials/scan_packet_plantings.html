@@ -1,0 +1,42 @@
+{# Plantings table for a scanned Packet.  Expects ``obj`` to be a Packet. #}
+{% with plantings=obj.plantings %}
+    {% if plantings %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h3 class="h5 mb-0">Plantings</h3>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Barcode</th>
+                                <th>Planted</th>
+                                <th>Germinated</th>
+                                <th>Last scanned</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for planting in plantings %}
+                                <tr>
+                                    <td>
+                                        <a href="{{ planting.scan_url }}">{{ planting.barcode }}</a>
+                                    </td>
+                                    <td>{{ planting.first_event_date|default:"-" }}</td>
+                                    <td>{{ planting.germinated|default:"-" }}</td>
+                                    <td>
+                                        {% if planting.last_scanned_at %}
+                                            {{ planting.last_scanned_at|date:"j-N-y" }} ({{ planting.last_scanned_at|timesince }} ago)
+                                        {% else %}
+                                            <span class="text-muted">Never</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% endwith %}

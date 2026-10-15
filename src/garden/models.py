@@ -1,4 +1,9 @@
+import re
+
+from auditlog.registry import auditlog
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.urls import reverse
 from django.utils import timezone
 
 
@@ -27,20 +32,68 @@ class BarcodeManager(models.Manager):
 class BarcodedBase(models.Model):
     barcode_start = 0
     prefix = 'P='
+    # Number of digits the id is zero-padded to in the barcode.  Derived from
+    # ``barcode_start`` (e.g. 100 -> 3 digits, 1000 -> 4 digits) unless set
+    # explicitly on the subclass.
+    barcode_width = None
+
+    # Scanning tracking
+    last_scanned_at = models.DateTimeField(null=True, blank=True, help_text='When this object was last scanned')
 
     objects = BarcodeManager()
 
     class Meta:
         abstract = True
 
+    def mark_scanned(self):
+        """Record that this object was just scanned."""
+        self.last_scanned_at = timezone.now()
+        self.save(update_fields=['last_scanned_at'])
+
+    @classmethod
+    def _barcode_width(cls):
+        """Return the zero-pad width for this model's barcode ids."""
+        if cls.barcode_width is not None:
+            return cls.barcode_width
+        # ``barcode_start`` marks the first id in the range, so its digit count
+        # is the width (e.g. 100 -> 3, 1000 -> 4).  A start of 0 or 1 means a
+        # single-digit range, which we pad to 3 for consistency.
+        return max(len(str(cls.barcode_start)), 3)
+
     @property
     def barcode(self):
-        return f'{self.prefix}{self.id}'
+        # An unsaved instance has no id yet (e.g. a blank admin inline row), so
+        # there is no barcode to show.
+        if self.id is None:
+            return '<unsaved>'
+        return f'{self.prefix}{self.id:0{self._barcode_width()}d}'
+
+    @property
+    def verbose_name(self):
+        """Human-readable model name (e.g. 'plant', 'container')."""
+        return self._meta.verbose_name
+
+    @property
+    def scan_url(self):
+        """URL that shows this object as if its barcode had been scanned."""
+
+        return reverse('scan', query={'barcode': self.barcode})
 
     @classmethod
     def pk_from_barcode(cls, barcode):
         """Return the primary key encoded in ``barcode`` for this model."""
         return int(barcode.removeprefix(cls.prefix))
+
+    @classmethod
+    def from_barcode(cls, barcode):
+        """Return the instance matching ``barcode``, or ``None`` if not found.
+
+        The barcode must be of the form ``<prefix><integer>`` for this model.
+        """
+        match = re.match(f'^{re.escape(cls.prefix)}(\\d+)$', barcode or '')
+        if not match:
+            return None
+        return cls.objects.filter(pk=match.group(1)).first()
 
 
 class Container(BarcodedBase):
@@ -50,7 +103,12 @@ class Container(BarcodedBase):
     name = models.CharField(max_length=100)  # Example: 'Blue ribbon 1'
 
     def __str__(self):
-        return self.name
+        return f'{self.barcode}: {self.name}'
+
+    @property
+    def contents(self):
+        """Return the packets and planting events stored in this container."""
+        return list(self.packet_set.all()) + list(self.plantingevent_set.all())
 
 
 class Plant(BarcodedBase):
@@ -72,7 +130,7 @@ class Plant(BarcodedBase):
         pass
 
     def __str__(self):
-        return self.name
+        return f'{self.barcode}: {self.name}'
 
 
 class Packet(BarcodedBase):
@@ -91,6 +149,11 @@ class Packet(BarcodedBase):
         # verbose_name_plural = "Packets"
         pass
 
+    @property
+    def plantings(self):
+        """Return the plantings that use this packet."""
+        return list(self.planting_set.all())
+
     def __str__(self):
         extra = f' ({self.full_name})' if self.full_name else ''
         return f'{self.barcode}: {self.plant.name}{extra}'
@@ -101,57 +164,70 @@ class Planting(BarcodedBase):
 
     packet = models.ForeignKey(Packet, on_delete=models.PROTECT)
     deleted = models.BooleanField(default=False)
-    planted = models.DateField()
-    location = models.CharField(max_length=100, null=True, blank=True)  # Example: 'Front garden parsley box'
-    notes = models.TextField(null=True, blank=True)  # Example: "From Kath's seedling box"
+    germinated = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(5)],
+        help_text='Germination success, 0 (nothing germinated) to 5 (full germination)',
+    )
 
     class Meta:
         # verbose_name_plural = "Plantings"
         pass
 
+    @property
+    def first_event_date(self):
+        """Date of the earliest event for this planting, or ``None``."""
+        first = self.events.order_by('date', 'pk').first()
+        return first.date if first else None
+
     def __str__(self):
-        return f'{self.barcode}: {self.packet.plant.name} on {self.planted}'
+        when = f' on {self.first_event_date}' if self.first_event_date else ''
+        return f'{self.barcode}: {self.packet.plant.name}{when}'
 
 
-class SheetChangeLog(models.Model):
-    """Audit log of every change received from Google Sheets.
+class PlantingEvent(models.Model):
+    """A datestamped event about a planting.
 
-    Each row is one webhook delivery from the Apps Script ``onEdit`` trigger.
-    Rows start as ``pending`` and are later moved to ``applied``, ``conflict``
-    or ``error`` as they are reconciled against the Django models.
+    Events record what happened to a planting and when: it was planted, it was
+    transplanted, or some other note-worthy occurrence.  The location details
+    (``planted_in``, ``location``) and free-text ``notes`` live here rather than
+    on the planting, so each event carries its own context.
     """
 
-    class Status(models.TextChoices):
-        PENDING = 'pending', 'Pending'
-        APPLIED = 'applied', 'Applied'
-        CONFLICT = 'conflict', 'Conflict'
-        ERROR = 'error', 'Error'
+    class EventType(models.TextChoices):
+        PLANTED = 'planted', 'Planted'
+        TRANSPLANTED = 'transplanted', 'Transplanted'
+        OTHER = 'other', 'Other'
 
-    sheet_name = models.CharField(max_length=255)
-    range = models.CharField(max_length=255)
-    key = models.CharField(max_length=255, null=True, blank=True)
-    column_name = models.CharField(max_length=255, null=True, blank=True)
-    old_values = models.JSONField(null=True, blank=True)
-    new_values = models.JSONField(null=True, blank=True)
-    edit_timestamp = models.DateTimeField(null=True, blank=True)
-    user_email = models.EmailField(null=True, blank=True)
-    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
-    applied_at = models.DateTimeField(null=True, blank=True)
-    error_message = models.TextField(null=True, blank=True)
-    resolved_by = models.ForeignKey(
-        'authuser.User',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='resolved_sheet_changes',
-    )
-    received_at = models.DateTimeField(default=timezone.now)
+    planting = models.ForeignKey(Planting, on_delete=models.CASCADE, related_name='events')
+    event_type = models.CharField(max_length=20, choices=EventType.choices)
+    date = models.DateField()
+    planted_in = models.ForeignKey(Container, on_delete=models.PROTECT, null=True, blank=True)
+    location = models.CharField(max_length=100, null=True, blank=True)  # Example: 'Front garden parsley box'
+    notes = models.TextField(null=True, blank=True)  # Example: "From Kath's seedling box"
 
     class Meta:
-        ordering = ['-received_at']
-        indexes = [
-            models.Index(fields=['status', '-received_at']),
-        ]
+        ordering = ['date', 'pk']
+
+    @property
+    def verbose_name(self):
+        """Human-readable model name (e.g. 'planting event').
+
+        Mirrors ``BarcodedBase.verbose_name`` so the scan templates can
+        distinguish a planting event from a packet in a container's contents.
+        """
+        return self._meta.verbose_name
 
     def __str__(self):
-        return f'{self.sheet_name}!{self.range} ({self.status})'
+        return f'{self.get_event_type_display()} on {self.date}'
+
+
+# Audit logging: record created/updated/deleted changes for the barcode-based
+# models and for planting events.  The acting user is captured by
+# ``auditlog.middleware.AuditlogMiddleware``.
+auditlog.register(Container)
+auditlog.register(Plant)
+auditlog.register(Packet)
+auditlog.register(Planting)
+auditlog.register(PlantingEvent)

@@ -1,4 +1,7 @@
-"""Send a test payload to the Google Sheets webhook endpoint.
+"""HISTORICAL / INACTIVE: send a test payload to the Google Sheets webhook endpoint.
+
+This command is retained for reference only.  The webhook URL wiring has been
+removed, so this command no longer has a target.
 
 Exercises the Stage 1 receiver end-to-end.  Exactly one of ``--url`` or
 ``--in-process`` must be given; there is no default target, so the command

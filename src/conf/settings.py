@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'dbbackup',
     'django_navtag',
     'django_htmx',
+    'auditlog',
     # See end of this file for debug tools
     # Apps in this project
     'app',
@@ -62,6 +63,8 @@ MIDDLEWARE = [
     'django_htmx.middleware.HtmxMiddleware',
     'conf.middleware.TimezoneMiddleware',
     'conf.middleware.HtmxMessagesMiddleware',
+    # Records the acting user on django-auditlog entries.
+    'auditlog.middleware.AuditlogMiddleware',
 ]
 
 ROOT_URLCONF = 'conf.urls'
@@ -121,13 +124,6 @@ AUTH_EXEMPT_VIEW_NAMES = (
     'admin:logout',
     'login',
     'logout',
-    # Google Sheets API: the webhook is authenticated by API key, not session
-    # login
-    'garden_api:sheets_webhook',
-    # To view with a browser, uncomment these
-    # 'garden_api:api-root',
-    # 'garden_api:openapi-view',
-    # 'garden_api:openapi-json',
     ## Good source: https://developer.mozilla.org/en-US/docs/Learn/Server-side/Django/Authentication
     # 'password_change',
     # 'password_change_done',
@@ -234,8 +230,7 @@ MAILERS = {
     },
 }
 
-# Google Sheets webhook (App Script -> Django).
-# The shared secret is read from the environment; see .env.template.
+# Google Sheets webhook (App Script -> Django) is historical and no longer active
 SHEETS_WEBHOOK_API_KEY = os.environ.get('SHEETS_WEBHOOK_API_KEY')
 
 try:

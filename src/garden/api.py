@@ -1,10 +1,15 @@
-"""django-ninja API for receiving Google Sheets change notifications.
+"""HISTORICAL / INACTIVE: django-ninja API for Google Sheets change notifications.
 
-Stage 2: every valid delivery is persisted as a ``SheetChangeLog`` row with
-status ``"pending"`` so nothing is lost and each change can be replayed or
-reconciled later.  The endpoint authenticates the caller with a shared API key.
+This module is retained for reference only.  The URL wiring was removed from
+``garden/urls.py`` and the ``SheetChangeLog`` model has been dropped, so this
+module no longer imports or runs.  Do not re-enable without restoring the model
+and the URL routes.
 
-The Google Apps Script sender (``Code.gs``) POSTs to
+Stage 2: every valid delivery was persisted as a ``SheetChangeLog`` row with
+status ``"pending"`` so nothing was lost and each change could be replayed or
+reconciled later.  The endpoint authenticated the caller with a shared API key.
+
+The Google Apps Script sender (``Code.gs``) POSTed to
 ``/garden/api/sheets/webhook/`` with the API key in the ``X-API-Key`` header.
 """
 

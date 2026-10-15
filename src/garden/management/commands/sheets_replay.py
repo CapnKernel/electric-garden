@@ -1,4 +1,6 @@
-"""Replay pending or failed Google Sheets change log rows.
+"""HISTORICAL / INACTIVE: replay pending or failed Google Sheets change log rows.
+
+This command is retained for reference only.  This command no longer imports or runs.
 
 The entire replay runs in a single atomic transaction, so if anything goes
 wrong the database is left untouched.  Deciding what to do with problematic
@@ -51,7 +53,12 @@ class Command(BaseCommand):
             line = f'#{result.change.pk} {result.change.sheet_name}!{result.change.range} -> {result.status}'
             if result.message:
                 line += f': {result.message}'
-            self.stdout.write(line)
+            if result.status == SheetChangeLog.Status.ERROR:
+                self.stderr.write(self.style.ERROR(line))
+            elif result.status == SheetChangeLog.Status.CONFLICT:
+                self.stderr.write(self.style.WARNING(line))
+            else:
+                self.stdout.write(line)
 
         if options['dry_run']:
             self.stdout.write(self.style.WARNING(f'Dry run: {len(results)} change(s) would be replayed.'))

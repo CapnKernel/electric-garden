@@ -1,17 +1,18 @@
 /**
- * Google Apps Script sender for the Electric Garden Sheets sync.
+ * Electric Garden Google Sheets sync - webhook sender.
  *
- * Install this in the bound script of the Google Sheet you want to sync.
- * An installable `onEdit` trigger calls `onSheetEdit`, which POSTs the change
+ * The installable `onEdit` trigger calls `onSheetEdit`, which POSTs the change
  * to the Django webhook at `WEBHOOK_URL`.
  *
  * Setup:
  *   1. Open the Sheet -> Extensions -> Apps Script.
- *   2. Paste this file in as `Code.gs`.
- *   3. Project Settings -> Script properties, add:
- *        WEBHOOK_URL  = https://garden.afork.com/garden/api/sheets/webhook/
- *        WEBHOOK_KEY  = <the same value as SHEETS_WEBHOOK_API_KEY in Django>
- *   4. Triggers -> Add trigger -> onSheetEdit, From spreadsheet, On edit.
+ *   2. Project Settings -> Script properties, add:
+          DATAPUSH_ENABLED = 1
+ *        WEBHOOK_URL = https://garden.afork.com/garden/api/sheets/webhook/
+ *        WEBHOOK_KEY = <the same value as SHEETS_WEBHOOK_API_KEY in Django>
+ *   3. Triggers -> Add trigger -> onSheetEdit, From spreadsheet, On edit.
+ *
+ * Pushing only happens if DATAPUSH_ENABLED is set to 1.  Set it to 0 to disable.
  *
  * Where to get WEBHOOK_KEY:
  *   On the VPS, entrypoint.sh generates the key on first start and stores it
@@ -28,7 +29,6 @@
 
 /** Maximum number of retry attempts for a failed POST. */
 var MAX_ATTEMPTS = 4;
-
 /** Base delay (ms) for exponential backoff between retries. */
 var BASE_BACKOFF_MS = 500;
 
@@ -37,8 +37,8 @@ var BASE_BACKOFF_MS = 500;
  *
  * @param {Object} e The edit event object supplied by Apps Script.
  */
-function onSheetEdit(e) {
-  // console.log('onSheetEdit triggered at ' + new Date().toISOString());
+function pushToWebhook(e) {
+  // console.log('pushToWebhook triggered at ' + new Date().toISOString());
 
   if (!e || !e.range) {
     // console.log('No edit range in event; ignoring (not a cell edit).');
@@ -46,6 +46,12 @@ function onSheetEdit(e) {
   }
 
   var props = PropertiesService.getScriptProperties();
+
+  // Only operate when the enable property is the numeric 1.
+  if (props.getProperty('DATAPUSH_ENABLED') !== '1') {
+    return;
+  }
+
   var url = props.getProperty('WEBHOOK_URL');
   var key = props.getProperty('WEBHOOK_KEY');
 
@@ -55,6 +61,7 @@ function onSheetEdit(e) {
   }
 
   var sheet = e.range.getSheet();
+
   // console.log(
   //   'Edit on sheet "' + sheet.getName() + '" range ' + e.range.getA1Notation() +
   //   ' (old=' + JSON.stringify(e.oldValue) + ', new=' + JSON.stringify(e.value) + ')'
@@ -86,12 +93,12 @@ function onSheetEdit(e) {
     var rowKey = sheet.getRange(e.range.getRow(), 1).getValue();
     if (rowKey !== '' && rowKey !== null && rowKey !== undefined) {
       payload.key = String(rowKey);
-      // console.log('Row key: ' + JSON.stringify(payload.key));
+      console.log('Row key: ' + JSON.stringify(payload.key));
     } else {
       // console.log('Row key is empty; omitting "key" from payload.');
     }
   } else {
-    // console.log('Edit spans multiple rows; omitting "key" from payload.');
+    console.log('Edit spans multiple rows; omitting "key" from payload.');
   }
 
   postWithRetry(url, key, payload, sheet.getName());

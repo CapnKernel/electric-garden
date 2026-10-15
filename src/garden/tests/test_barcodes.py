@@ -2,7 +2,7 @@
 
 import pytest
 
-from garden.models import Container, Packet, Plant, Planting
+from garden.models import Container, Packet, Plant, Planting, PlantingEvent
 
 
 @pytest.fixture
@@ -17,7 +17,9 @@ def packet(db, plant):
 
 @pytest.fixture
 def planting(db, packet):
-    return Planting.objects.create(id=1, packet=packet, planted='2026-01-01')
+    planting = Planting.objects.create(id=1, packet=packet)
+    PlantingEvent.objects.create(planting=planting, event_type=PlantingEvent.EventType.PLANTED, date='2026-01-01')
+    return planting
 
 
 @pytest.fixture
@@ -25,11 +27,22 @@ def container(db):
     return Container.objects.create(id=1, name='Blue ribbon 1')
 
 
-def test_barcode_is_prefix_plus_id(plant, packet, planting, container):
-    assert plant.barcode == f'P={plant.id}'
-    assert packet.barcode == f'P={packet.id}'
-    assert planting.barcode == f'P={planting.id}'
-    assert container.barcode == f'PC={container.id}'
+def test_barcode_is_prefix_plus_padded_id(plant, packet, planting, container):
+    # Ids are zero-padded: Plant/Container to 3 digits, Packet to 3, Planting to 4.
+    assert plant.barcode == 'P=001'
+    assert packet.barcode == 'P=001'
+    assert planting.barcode == 'P=0001'
+    assert container.barcode == 'PC=001'
+
+
+def test_barcode_pads_to_model_width(db):
+    assert Plant(id=7).barcode == 'P=007'
+    assert Packet(id=107).barcode == 'P=107'
+    assert Planting(id=1007).barcode == 'P=1007'
+    assert Container(id=7).barcode == 'PC=007'
+    # Values wider than the pad width are not truncated.
+    assert Packet(id=1234).barcode == 'P=1234'
+    assert Planting(id=12345).barcode == 'P=12345'
 
 
 def test_barcode_is_read_only(plant):
@@ -55,7 +68,7 @@ def test_pk_from_barcode_uses_each_models_prefix(plant, packet, planting, contai
 def test_create_accepts_barcode(db):
     plant = Plant.objects.create(barcode='P=7', code='BR', name='Beetroot')
     assert plant.id == 7
-    assert plant.barcode == 'P=7'
+    assert plant.barcode == 'P=007'
 
 
 def test_create_rejects_id_and_barcode_together(db):

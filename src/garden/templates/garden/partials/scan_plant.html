@@ -1,0 +1,25 @@
+{# Detail rows for a scanned Plant.  Expects ``obj`` to be a Plant. #}
+{% if obj.code %}
+    <tr>
+        <th scope="row">Code</th>
+        <td>{{ obj.code }}</td>
+    </tr>
+{% endif %}
+{% if obj.spacing %}
+    <tr>
+        <th scope="row">Spacing</th>
+        <td>{{ obj.spacing }}</td>
+    </tr>
+{% endif %}
+{% if obj.germination %}
+    <tr>
+        <th scope="row">Germination</th>
+        <td>Around {{ obj.germination }} days</td>
+    </tr>
+{% endif %}
+{% if obj.harvest %}
+    <tr>
+        <th scope="row">Harvest</th>
+        <td>Around {{ obj.harvest }} weeks</td>
+    </tr>
+{% endif %}

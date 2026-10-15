@@ -1,4 +1,5 @@
 {% load static %}
+{% load django_htmx %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -12,14 +13,23 @@
                 Page Title
             {% endblock title %}
         </title>
+        <!-- Bootstrap CSS -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+              rel="stylesheet"
+              integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
+              crossorigin="anonymous">
         <link rel="stylesheet" href="{% static 'css/style.css' %}" />
+        <!-- Flatpickr (Bootstrap-friendly date picker) -->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+        <!-- HTMX -->
+        {% htmx_script %}
         <!-- JAVASCRIPT -->
         {#<script type="text/javascript" language="Javascript" src="http://ajax.aspnetcdn.com/ajax/jquery/jquery-1.11.3.min.js"></script>#}
         {% block extra_head %}
         {% endblock extra_head %}
     </head>
 
-    <body>
+    <body hx-headers='{"x-csrftoken": "{{ csrf_token }}"}'>
         {% if messages %}
             <ul class="messages">
                 {% for message in messages %}
@@ -28,20 +38,25 @@
             </ul>
         {% endif %}
 
-        <div class="container">
-            <div class="row">
-                <div class="twelve columns">
-                    <h1>
-                        {% block h1 %}
-                        {% endblock h1 %}
-                    </h1>
+        <div class="container mt-4">
+            <h1>
+                {% block h1 %}
+                {% endblock h1 %}
+            </h1>
 
-                    {% block body %}
-                        <p>A fine body here.</p>
-                    {% endblock body %}
-                </div>
-            </div>
+            {% block body %}
+                <p>A fine body here.</p>
+            {% endblock body %}
         </div>
+
+        <!-- Bootstrap JS -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+                integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+                crossorigin="anonymous"></script>
+
+        <!-- Flatpickr JS -->
+        <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+        <script src="{% static 'js/datepicker.js' %}"></script>
 
         {% block extra_js %}
         {% endblock extra_js %}

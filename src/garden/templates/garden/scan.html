@@ -1,0 +1,80 @@
+{% extends "garden/base.html" %}
+
+{% block title %}
+    Scan barcode
+{% endblock title %}
+
+{% block h1 %}
+    Scan barcode
+{% endblock h1 %}
+
+{% block body %}
+    {% partialdef scan-result inline %}
+        <div id="scan-result">
+            {% if error %}
+                <div class="alert alert-danger" role="alert">{{ error }}</div>
+            {% elif obj %}
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h2 class="h5 mb-0">{{ obj }}</h2>
+                        <span class="badge bg-secondary">{{ obj.verbose_name }}</span>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm table-striped mb-0">
+                            <tbody>
+                                <tr>
+                                    <th scope="row">Barcode</th>
+                                    <td>
+                                        <code>{{ obj.barcode }}</code>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">Last scanned</th>
+                                    <td>
+                                        {% if obj.last_scanned_at %}
+                                            {{ obj.last_scanned_at|date:"j-N-y" }} ({{ obj.last_scanned_at|timesince }} ago)
+                                        {% else %}
+                                            <span class="text-muted">Never scanned</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% if obj.verbose_name == 'plant' %}
+                                    {% include "garden/partials/scan_plant.html" %}
+                                {% elif obj.verbose_name == 'packet' %}
+                                    {% include "garden/partials/scan_packet.html" %}
+                                {% elif obj.verbose_name == 'container' %}
+                                    {% include "garden/partials/scan_container.html" %}
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {% if obj.verbose_name == 'container' %}
+                    {% include "garden/partials/scan_contents.html" %}
+                {% elif obj.verbose_name == 'planting' %}
+                    {% include "garden/partials/scan_planting.html" %}
+                {% elif obj.verbose_name == 'packet' %}
+                    {% include "garden/partials/scan_packet_plantings.html" %}
+                {% endif %}
+            {% endif %}
+
+            <form hx-post="{% url 'scan_hxpost' %}"
+                  hx-target="#scan-result"
+                  hx-swap="outerHTML"
+                  hx-on::after-swap="document.getElementById('barcode').focus()">
+                {% csrf_token %}
+                <div class="input-group">
+                    <input type="text"
+                           id="barcode"
+                           name="barcode"
+                           class="form-control"
+                           placeholder="Scan or enter a barcode..."
+                           autofocus
+                           autocomplete="off">
+                    <button type="submit" class="btn btn-primary">Submit</button>
+                </div>
+            </form>
+        </div>
+    {% endpartialdef scan-result %}
+{% endblock body %}
