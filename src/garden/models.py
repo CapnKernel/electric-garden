@@ -102,6 +102,11 @@ class Container(BarcodedBase):
 
     name = models.CharField(max_length=100)  # Example: 'Blue ribbon 1'
 
+    class Meta:
+        # Newest first, so container dropdowns list the most recent containers
+        # at the top.
+        ordering = ['-pk']
+
     def __str__(self):
         return f'{self.barcode}: {self.name}'
 
@@ -205,6 +210,12 @@ class Planting(BarcodedBase):
         """Date of the earliest event for this planting, or ``None``."""
         first = self.events.order_by('date', 'pk').first()
         return first.date if first else None
+
+    @property
+    def location(self):
+        """Location recorded on the planting's most recent event, if any."""
+        event = self.events.order_by('-date', '-pk').first()
+        return event.location if event is not None else None
 
     def __str__(self):
         when = f' planted {first_event_date:%d-%b-%Y}' if (first_event_date := self.first_event_date) else ''
