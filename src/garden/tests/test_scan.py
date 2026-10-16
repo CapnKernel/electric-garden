@@ -6,6 +6,7 @@ from pytest_django.asserts import assertContains, assertNotContains
 
 from garden.models import Container, Packet, Plant, Planting, PlantingEvent
 from garden.scan import BarcodeNotFound, lookup_barcode, scan_and_mark
+from garden.templatetags.garden_extras import friendly_date
 
 
 @pytest.fixture
@@ -138,7 +139,8 @@ class TestScanHxpost:
         )
 
         assert response.status_code == 200
-        assertContains(response, '2026-01-01')
+        assertContains(response, 'Planted')
+        assertContains(response, friendly_date(planting.events.first().date))
 
     def test_shows_container_info(self, authed_client, container):
         response = authed_client.post(

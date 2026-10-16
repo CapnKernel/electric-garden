@@ -1,4 +1,5 @@
 {# Plantings table for a scanned Packet.  Expects ``obj`` to be a Packet. #}
+{% load garden_extras %}
 {% with plantings=obj.plantings %}
     {% if plantings %}
         <div class="card mb-4">
@@ -22,7 +23,7 @@
                                     <td>
                                         <a href="{{ planting.scan_url }}">{{ planting.barcode }}</a>
                                     </td>
-                                    <td>{{ planting.first_event_date|default:"-" }}</td>
+                                    <td>{{ planting.first_event_date|friendly_date|default:"-" }}</td>
                                     <td>{{ planting.germinated|default:"-" }}</td>
                                     <td>
                                         {% if planting.last_scanned_at %}

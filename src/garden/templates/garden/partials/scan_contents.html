@@ -4,6 +4,7 @@ Contents table for a scanned Container.  Expects ``obj`` to be a Container.
 Rows are grouped by planting (see ``Container.contents``), so each planting has
 a single row listing all of its events, and each packet has its own row.
 {% endcomment %}
+{% load garden_extras %}
 {% with contents=obj.contents %}
     {% if contents %}
         <div class="card mb-4">
@@ -58,7 +59,7 @@ a single row listing all of its events, and each packet has its own row.
                                                     {% for event in group.list %}
                                                         <div>
                                                             <span class="badge bg-secondary">{{ event.get_event_type_display }}</span>
-                                                            {{ event.date|date }}
+                                                            {{ event.date|friendly_date }}
                                                             {% if event.planted_in %}
                                                                 · <a href="{{ event.planted_in.scan_url }}">{{ event.planted_in.name }}</a>
                                                             {% endif %}
