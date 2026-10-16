@@ -56,6 +56,27 @@ class TestContainerPlantings:
         assert _container_plantings(container) == []
         assert _container_plantings(other) == [planting]
 
+    def test_transplant_wins_tie_with_germination_on_same_date(self, container, planting):
+        from garden.planting import _container_plantings
+
+        other = Container.objects.create(id=2, name='Other')
+        # Same date: the transplant should be treated as the more recent event.
+        PlantingEvent.objects.create(
+            planting=planting,
+            event_type=PlantingEvent.EventType.GERMINATED,
+            date='2026-02-01',
+            planted_in=container,
+        )
+        PlantingEvent.objects.create(
+            planting=planting,
+            event_type=PlantingEvent.EventType.TRANSPLANTED,
+            date='2026-02-01',
+            planted_in=other,
+        )
+
+        assert _container_plantings(container) == []
+        assert _container_plantings(other) == [planting]
+
     def test_excludes_deleted_planting(self, container, planting):
         from garden.planting import _container_plantings
 

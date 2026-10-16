@@ -130,7 +130,12 @@ class Container(BarcodedBase):
         """
         plantings = []
         for planting in Planting.objects.filter(deleted=False).select_related('packet__plant'):
-            latest = planting.events.exclude(planted_in__isnull=True).order_by('-date', '-pk').first()
+            latest = (
+                planting.events.exclude(planted_in__isnull=True)
+                .annotate(recency=PLANTING_EVENT_RECENCY)
+                .order_by('-date', '-recency', '-pk')
+                .first()
+            )
             if latest is not None and latest.planted_in_id == self.pk:
                 plantings.append(planting)
         return plantings
@@ -267,6 +272,18 @@ class PlantingEvent(models.Model):
 
     def __str__(self):
         return f'{self.get_event_type_display()} on {self.date}'
+
+
+# Priority used to break ties between events that share a date: a transplant is
+# treated as more recent than germination, which in turn outranks a planting.
+# This means a transplant on the same day as a germination moves the planting to
+# its new container rather than leaving it in the germination container.
+PLANTING_EVENT_RECENCY = models.Case(
+    models.When(event_type=PlantingEvent.EventType.TRANSPLANTED, then=models.Value(2)),
+    models.When(event_type=PlantingEvent.EventType.GERMINATED, then=models.Value(1)),
+    default=models.Value(0),
+    output_field=models.IntegerField(),
+)
 
 
 # Audit logging: record created/updated/deleted changes for the barcode-based
