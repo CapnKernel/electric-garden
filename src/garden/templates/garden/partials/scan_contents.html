@@ -1,4 +1,9 @@
-{# Contents table for a scanned Container.  Expects ``obj`` to be a Container. #}
+{% comment %}
+Contents table for a scanned Container.  Expects ``obj`` to be a Container.
+
+Rows are grouped by planting (see ``Container.contents``), so each planting has
+a single row listing all of its events, and each packet has its own row.
+{% endcomment %}
 {% with contents=obj.contents %}
     {% if contents %}
         <div class="card mb-4">
@@ -13,77 +18,77 @@
                     <table class="table table-sm table-striped table-hover mb-0">
                         <thead>
                             <tr>
-                                <th>Type</th>
                                 <th>Barcode</th>
                                 <th>Plant</th>
                                 <th>Packet</th>
-                                <th>PlantedIn</th>
                                 <th>Brand</th>
                                 <th>Full name</th>
                                 <th>Expiry</th>
                                 <th>Last scanned</th>
+                                <th>Events</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for item in contents %}
-                                <tr>
-                                    {% if item.verbose_name == 'planting event' %}
-                                        <td>
-                                            <span class="badge bg-secondary">{{ item.get_event_type_display }}</span>
-                                        </td>
-                                        <td>
-                                            <a href="{{ item.planting.scan_url }}">{{ item.planting.barcode }}</a>
-                                        </td>
-                                        <td>
-                                            <a href="{{ item.planting.packet.plant.scan_url }}">{{ item.planting.packet.plant.name }}</a>
-                                        </td>
-                                        <td>
-                                            <a href="{{ item.planting.packet.scan_url }}">{{ item.planting.packet.barcode }}</a>
-                                        </td>
-                                        <td>
-                                            {% if item.planted_in %}
-                                                <a href="{{ item.planted_in.scan_url }}">{{ item.planted_in.name }}</a>
-                                            {% endif %}
-                                            {{ item.location|default:"" }}
-                                        </td>
-                                        <td>{{ item.planting.packet.brand|default:"" }}</td>
-                                        <td>{{ item.planting.packet.full_name|default:"" }}</td>
-                                        <td>{{ item.planting.packet.expiry|default:"" }}</td>
-                                        <td>
-                                            {% if item.planting.last_scanned_at %}
-                                                {{ item.planting.last_scanned_at|date }} ({{ item.planting.last_scanned_at|timesince }} ago)
-                                            {% else %}
-                                                <span class="text-muted">Never</span>
-                                            {% endif %}
-                                        </td>
-                                    {% else %}
-                                        <td>
-                                            <span class="badge bg-secondary">{{ item.verbose_name }}</span>
-                                        </td>
-                                        <td>
-                                            <a href="{{ item.scan_url }}">{{ item.barcode }}</a>
-                                        </td>
-                                        <td>
-                                            <a href="{{ item.plant.scan_url }}">{{ item.plant.name }}</a>
-                                        </td>
-                                        <td></td>
-                                        <td>
-                                            {% if item.container %}
-                                                <a href="{{ item.container.scan_url }}">{{ item.container.name }}</a>
-                                            {% endif %}
-                                        </td>
-                                        <td>{{ item.brand|default:"" }}</td>
-                                        <td>{{ item.full_name|default:"" }}</td>
-                                        <td>{{ item.expiry|default:"" }}</td>
-                                        <td>
-                                            {% if item.last_scanned_at %}
-                                                {{ item.last_scanned_at|date }} ({{ item.last_scanned_at|timesince }} ago)
-                                            {% else %}
-                                                <span class="text-muted">Never</span>
-                                            {% endif %}
-                                        </td>
-                                    {% endif %}
-                                </tr>
+                            {% regroup contents by grouping_key as groups %}
+                            {% for group in groups %}
+                                {% with first=group.list.0 %}
+                                    <tr>
+                                        {% if first.verbose_name == 'planting event' %}
+                                            {% with planting=first.planting %}
+                                                <td>
+                                                    <a href="{{ planting.scan_url }}">{{ planting.barcode }}</a>
+                                                </td>
+                                                <td>
+                                                    <a href="{{ planting.packet.plant.scan_url }}">{{ planting.packet.plant.name }}</a>
+                                                </td>
+                                                <td>
+                                                    <a href="{{ planting.packet.scan_url }}">{{ planting.packet.barcode }}</a>
+                                                </td>
+                                                <td>{{ planting.packet.brand|default:"" }}</td>
+                                                <td>{{ planting.packet.full_name|default:"" }}</td>
+                                                <td>{{ planting.packet.expiry|default:"" }}</td>
+                                                <td>
+                                                    {% if planting.last_scanned_at %}
+                                                        {{ planting.last_scanned_at|date }} ({{ planting.last_scanned_at|timesince }} ago)
+                                                    {% else %}
+                                                        <span class="text-muted">Never</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% for event in group.list %}
+                                                        <div>
+                                                            <span class="badge bg-secondary">{{ event.get_event_type_display }}</span>
+                                                            {{ event.date|date }}
+                                                            {% if event.planted_in %}
+                                                                · <a href="{{ event.planted_in.scan_url }}">{{ event.planted_in.name }}</a>
+                                                            {% endif %}
+                                                            {% if event.location %}· {{ event.location }}{% endif %}
+                                                        </div>
+                                                    {% endfor %}
+                                                </td>
+                                            {% endwith %}
+                                        {% else %}
+                                            <td>
+                                                <a href="{{ first.scan_url }}">{{ first.barcode }}</a>
+                                            </td>
+                                            <td>
+                                                <a href="{{ first.plant.scan_url }}">{{ first.plant.name }}</a>
+                                            </td>
+                                            <td></td>
+                                            <td>{{ first.brand|default:"" }}</td>
+                                            <td>{{ first.full_name|default:"" }}</td>
+                                            <td>{{ first.expiry|default:"" }}</td>
+                                            <td>
+                                                {% if first.last_scanned_at %}
+                                                    {{ first.last_scanned_at|date }} ({{ first.last_scanned_at|timesince }} ago)
+                                                {% else %}
+                                                    <span class="text-muted">Never</span>
+                                                {% endif %}
+                                            </td>
+                                            <td></td>
+                                        {% endif %}
+                                    </tr>
+                                {% endwith %}
                             {% endfor %}
                         </tbody>
                     </table>

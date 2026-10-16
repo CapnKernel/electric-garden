@@ -256,3 +256,57 @@ class TestMarkScanned:
 
         plant.refresh_from_db()
         assert plant.last_scanned_at is not None
+
+
+class TestContainerContentsOrdering:
+    """A container's planting events are grouped by planting, then ordered by date."""
+
+    @staticmethod
+    def _events(container):
+        return [item for item in container.contents if item.verbose_name == 'planting event']
+
+    def test_events_grouped_by_planting_then_date(self, container, packet):
+        first = Planting.objects.create(id=1001, packet=packet)
+        second = Planting.objects.create(id=1002, packet=packet)
+        # The dates interleave across plantings, so ordering by planting first
+        # (and date within) gives a different result to ordering by date alone.
+        e1 = PlantingEvent.objects.create(
+            planting=first, event_type='planted', date='2026-02-01', planted_in=container
+        )
+        e2 = PlantingEvent.objects.create(
+            planting=second, event_type='planted', date='2026-01-15', planted_in=container
+        )
+        e3 = PlantingEvent.objects.create(
+            planting=first, event_type='germinated', date='2026-03-01', planted_in=container
+        )
+
+        assert self._events(container) == [e1, e3, e2]
+
+
+class TestContainerContentsRows:
+    """One row per planting, listing all of that planting's events."""
+
+    def test_planting_row_lists_all_events(self, authed_client, container, planting):
+        PlantingEvent.objects.create(
+            planting=planting,
+            event_type=PlantingEvent.EventType.PLANTED,
+            date='2026-01-01',
+            planted_in=container,
+        )
+        PlantingEvent.objects.create(
+            planting=planting,
+            event_type=PlantingEvent.EventType.GERMINATED,
+            date='2026-01-10',
+            planted_in=container,
+        )
+
+        response = authed_client.post(
+            reverse('scan_hxpost'),
+            {'barcode': container.barcode},
+            HTTP_HX_REQUEST='true',
+        )
+
+        assertContains(response, 'Planted')
+        assertContains(response, 'Germinated')
+        # Both events share the planting's single row, so its barcode appears once.
+        assert response.content.decode().count(planting.barcode) == 1

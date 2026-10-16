@@ -107,8 +107,13 @@ class Container(BarcodedBase):
 
     @property
     def contents(self):
-        """Return the packets and planting events stored in this container."""
-        return list(self.packet_set.all()) + list(self.plantingevent_set.all())
+        """Return the packets and planting events stored in this container.
+
+        Planting events are grouped by their planting, and ordered by date
+        within each planting.
+        """
+        events = self.plantingevent_set.order_by('planting_id', 'date', 'pk')
+        return list(self.packet_set.all()) + list(events)
 
     @property
     def plantings(self):
@@ -168,6 +173,11 @@ class Packet(BarcodedBase):
     def plantings(self):
         """Return the plantings that use this packet."""
         return list(self.planting_set.all())
+
+    @property
+    def grouping_key(self):
+        """Key used to group rows in a container's contents (see scan_contents)."""
+        return ('packet', self.pk)
 
     def __str__(self):
         extra = f' ({self.full_name})' if self.full_name else ''
@@ -234,6 +244,15 @@ class PlantingEvent(models.Model):
         distinguish a planting event from a packet in a container's contents.
         """
         return self._meta.verbose_name
+
+    @property
+    def grouping_key(self):
+        """Key used to group rows in a container's contents (see scan_contents).
+
+        Consecutive events for the same planting share a key, so the template
+        can blank the repeated planting columns with ``{% ifchanged %}``.
+        """
+        return ('planting', self.planting_id)
 
     def __str__(self):
         return f'{self.get_event_type_display()} on {self.date}'

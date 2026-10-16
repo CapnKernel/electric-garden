@@ -23,7 +23,10 @@ def planting_edit(request, pk):
     if request.method == 'POST':
         form = PlantingForm(request.POST, instance=planting)
         if form.is_valid():
-            form.save()
+            changed = form.has_changed()
+            planting = form.save()
+            if changed:
+                planting.mark_scanned()
             return redirect(f'{reverse("scan")}?barcode={planting.barcode}')
     else:
         form = PlantingForm(instance=planting)
@@ -59,6 +62,7 @@ def planting_event_create(request, pk):
             event = form.save(commit=False)
             event.planting = planting
             event.save()
+            planting.mark_scanned()
             return render_scan_result(request, planting)
     else:
         form = PlantingEventForm()
@@ -79,7 +83,10 @@ def planting_event_edit(request, pk):
     if request.method == 'POST':
         form = PlantingEventForm(request.POST, instance=event)
         if form.is_valid():
+            changed = form.has_changed()
             form.save()
+            if changed:
+                event.planting.mark_scanned()
             return render_scan_result(request, event.planting)
     else:
         form = PlantingEventForm(instance=event)
@@ -181,6 +188,7 @@ def _save_germination(container, plantings, forms):
         for planting, form in zip(plantings, forms):
             germinated = form.cleaned_data['germinated']
             score = form.cleaned_data['score'] if germinated else None
+            changed = planting.germinated != score
             planting.germinated = score
             planting.save(update_fields=['germinated'])
 
@@ -195,9 +203,15 @@ def _save_germination(container, plantings, forms):
                         date=today,
                         planted_in=container,
                     )
-                else:
+                    changed = True
+                elif event.date != today or event.planted_in_id != container.pk:
                     event.date = today
                     event.planted_in = container
                     event.save(update_fields=['date', 'planted_in'])
+                    changed = True
             elif event is not None:
                 event.delete()
+                changed = True
+
+            if changed:
+                planting.mark_scanned()

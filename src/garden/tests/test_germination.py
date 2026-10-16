@@ -236,3 +236,64 @@ class TestGerminationButton:
         )
 
         assertNotContains(response, reverse('container_germination', args=[container.pk]))
+
+
+class TestLastScannedUpdated:
+    """last_scanned_at is bumped only when a planting or event actually changes."""
+
+    @staticmethod
+    def _germination_data(planting, score):
+        return {
+            f'{planting.pk}-planting_id': planting.pk,
+            f'{planting.pk}-germinated': 'on',
+            f'{planting.pk}-score': str(score),
+        }
+
+    def test_changed_germination_updates_last_scanned(self, authed_client, container, planting):
+        Planting.objects.filter(pk=planting.pk).update(last_scanned_at=None)
+
+        authed_client.post(
+            reverse('container_germination', args=[container.pk]),
+            self._germination_data(planting, 2),
+        )
+
+        planting.refresh_from_db()
+        assert planting.last_scanned_at is not None
+
+    def test_identical_germination_does_not_update_last_scanned(self, authed_client, container, planting):
+        data = self._germination_data(planting, 2)
+        authed_client.post(reverse('container_germination', args=[container.pk]), data)
+        planting.refresh_from_db()
+        before = planting.last_scanned_at
+
+        authed_client.post(reverse('container_germination', args=[container.pk]), data)
+
+        planting.refresh_from_db()
+        assert planting.last_scanned_at == before
+
+    def test_creating_event_updates_last_scanned(self, authed_client, planting):
+        Planting.objects.filter(pk=planting.pk).update(last_scanned_at=None)
+
+        authed_client.post(
+            reverse('planting_event_create', args=[planting.pk]),
+            {'event_type': PlantingEvent.EventType.TRANSPLANTED, 'date': '2026-03-01'},
+        )
+
+        planting.refresh_from_db()
+        assert planting.last_scanned_at is not None
+
+    def test_editing_event_updates_last_scanned(self, authed_client, planting):
+        event = PlantingEvent.objects.create(
+            planting=planting,
+            event_type=PlantingEvent.EventType.TRANSPLANTED,
+            date='2026-03-01',
+        )
+        Planting.objects.filter(pk=planting.pk).update(last_scanned_at=None)
+
+        authed_client.post(
+            reverse('planting_event_edit', args=[event.pk]),
+            {'event_type': event.event_type, 'date': '2026-03-02', 'location': 'New spot', 'notes': ''},
+        )
+
+        planting.refresh_from_db()
+        assert planting.last_scanned_at is not None
