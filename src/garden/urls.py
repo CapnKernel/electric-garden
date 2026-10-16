@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .planting import (
+    container_germination,
     planting_edit,
     planting_event_create,
     planting_event_delete,
@@ -17,4 +18,5 @@ urlpatterns = [
     path('planting/<int:pk>/event/new/', planting_event_create, name='planting_event_create'),
     path('planting/event/<int:pk>/edit/', planting_event_edit, name='planting_event_edit'),
     path('planting/event/<int:pk>/delete/', planting_event_delete, name='planting_event_delete'),
+    path('container/<int:pk>/germination/', container_germination, name='container_germination'),
 ]

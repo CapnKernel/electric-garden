@@ -1,0 +1,13 @@
+{% extends "garden/base.html" %}
+
+{% block title %}
+    Germination - {{ container.name }} ({{ container.barcode }})
+{% endblock title %}
+
+{% block h1 %}
+    Germination - {{ container.name }} ({{ container.barcode }})
+{% endblock h1 %}
+
+{% block body %}
+    {% include "garden/partials/container_germination_form.html" %}
+{% endblock body %}

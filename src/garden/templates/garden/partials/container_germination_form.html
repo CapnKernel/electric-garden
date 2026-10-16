@@ -1,0 +1,80 @@
+{# Germination form for a Container.  Expects ``container`` and ``rows`` (planting/form pairs). #}
+<div id="scan-result">
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="h5 mb-0">Plantings</h3>
+        </div>
+        <div class="card-body">
+            {% if rows %}
+                <form hx-post="{% url 'container_germination' pk=container.pk %}"
+                      hx-target="#scan-result"
+                      hx-swap="outerHTML">
+                    {% csrf_token %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped align-middle mb-3">
+                            <thead>
+                                <tr>
+                                    <th>Planting</th>
+                                    <th>Plant</th>
+                                    <th>Germinated</th>
+                                    <th>Score</th>
+                                </tr>
+                                <tr>
+                                    <th colspan="3"></th>
+                                    <th class="fw-normal small text-muted">
+                                        <div class="d-flex justify-content-between">
+                                            <span>Nothing</span>
+                                            <span>Some</span>
+                                            <span>Most</span>
+                                            <span>Everything</span>
+                                        </div>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for planting, form in rows %}
+                                    <tr x-data="{ germinated: {{ form.germinated.value|yesno:'true,false' }}, score: {{ form.score.value|default:'null' }} }">
+                                        <td>
+                                            <a href="{{ planting.scan_url }}">{{ planting.barcode }}</a>
+                                            {{ form.planting_id }}
+                                            {{ form.score }}
+                                        </td>
+                                        <td>{{ planting.packet.plant.name }}</td>
+                                        <td>
+                                            <div class="form-check">
+                                                {{ form.germinated }}
+                                                <label class="form-check-label" for="{{ form.germinated.id_for_label }}">Germinated</label>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {% comment %}
+                                               Always-active slider: using it records the score and turns germination on.
+                                               A native range always shows a thumb, so an unset score rests at the
+                                               minimum and the control is dimmed until the user picks a score.
+                                            {% endcomment %}
+                                            <input type="range"
+                                                   min="0"
+                                                   max="3"
+                                                   step="1"
+                                                   class="form-range"
+                                                   :class="score === null ? 'opacity-50' : ''"
+                                                   :value="score ?? 0"
+                                                   @input="score = Number($event.target.value); germinated = true">
+                                            {% for error in form.score.errors %}
+                                                <div class="invalid-feedback d-block">{{ error }}</div>
+                                            {% endfor %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                    <a href="{{ container.scan_url }}" class="btn btn-secondary btn-sm">Cancel</a>
+                </form>
+            {% else %}
+                <p class="text-muted">No plantings in this container.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>

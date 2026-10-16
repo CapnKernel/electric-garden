@@ -110,6 +110,21 @@ class Container(BarcodedBase):
         """Return the packets and planting events stored in this container."""
         return list(self.packet_set.all()) + list(self.plantingevent_set.all())
 
+    @property
+    def plantings(self):
+        """Return the plantings currently growing in this container.
+
+        A planting is "in" the container when its most recent event that names
+        a container (``planted_in``) points at this container.  This means a
+        planting that was later transplanted elsewhere is no longer listed.
+        """
+        plantings = []
+        for planting in Planting.objects.filter(deleted=False).select_related('packet__plant'):
+            latest = planting.events.exclude(planted_in__isnull=True).order_by('-date', '-pk').first()
+            if latest is not None and latest.planted_in_id == self.pk:
+                plantings.append(planting)
+        return plantings
+
 
 class Plant(BarcodedBase):
     barcode_start = 0  # There won't actually be a 0, this just makes it match better with the others
@@ -167,8 +182,8 @@ class Planting(BarcodedBase):
     germinated = models.PositiveSmallIntegerField(
         null=True,
         blank=True,
-        validators=[MinValueValidator(0), MaxValueValidator(5)],
-        help_text='Germination success, 0 (nothing germinated) to 5 (full germination)',
+        validators=[MinValueValidator(0), MaxValueValidator(3)],
+        help_text=('Germination success, 0-3=nothing/some/most/all'),
     )
 
     class Meta:
@@ -197,6 +212,7 @@ class PlantingEvent(models.Model):
 
     class EventType(models.TextChoices):
         PLANTED = 'planted', 'Planted'
+        GERMINATED = 'germinated', 'Germinated'
         TRANSPLANTED = 'transplanted', 'Transplanted'
         OTHER = 'other', 'Other'
 

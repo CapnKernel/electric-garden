@@ -3,6 +3,37 @@ from django import forms
 from .models import Planting, PlantingEvent
 
 
+class GerminationRowForm(forms.Form):
+    """One row of the container germination form.
+
+    ``germinated`` is a checkbox; ``score`` is a 0-3 slider rendered in the
+    template (0 = nothing germinated, 3 = everything germinated).  The slider is
+    always active and is bound to a hidden ``score`` field, so it only submits a
+    value once the user has used it.  Interacting with the slider also ticks
+    ``germinated``; ticking ``germinated`` without choosing a score is an error.
+    """
+
+    planting_id = forms.IntegerField(widget=forms.HiddenInput)
+    germinated = forms.BooleanField(
+        required=False,
+        widget=forms.CheckboxInput(attrs={'x-model': 'germinated'}),
+    )
+    # Hidden field driven by Alpine (``:value="score ?? ''"``): empty until the
+    # template's slider is used, so no default score is ever submitted.
+    score = forms.IntegerField(
+        required=False,
+        min_value=0,
+        max_value=3,
+        widget=forms.HiddenInput(attrs={':value': "score ?? ''"}),
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get('germinated') and cleaned.get('score') is None:
+            self.add_error('score', 'Choose a germination score between 0 and 3.')
+        return cleaned
+
+
 class PlantingForm(forms.ModelForm):
     """Form for editing a planting."""
 
@@ -17,7 +48,7 @@ class PlantingForm(forms.ModelForm):
         model = Planting
         fields = ('packet', 'germinated', 'deleted')
         widgets = {
-            'germinated': forms.NumberInput(attrs={'min': 0, 'max': 5}),
+            'germinated': forms.NumberInput(attrs={'min': 0, 'max': 3}),
         }
 
     def __init__(self, *args, **kwargs):
