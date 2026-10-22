@@ -312,3 +312,63 @@ class TestContainerContentsRows:
         assertContains(response, 'Germinated')
         # Both events share the planting's single row, so its barcode appears once.
         assert response.content.decode().count(planting.barcode) == 1
+
+
+class TestContainerContentsTransplant:
+    """A transplanted planting is shown in the container it was transplanted to."""
+
+    @staticmethod
+    def _events(container):
+        return [item for item in container.contents if item.verbose_name == 'planting event']
+
+    def test_shown_in_latest_container_with_all_events(self, container, packet):
+        destination = Container.objects.create(id=2, name='Destination')
+        planting = Planting.objects.create(id=1001, packet=packet)
+        planted = PlantingEvent.objects.create(
+            planting=planting, event_type='planted', date='2026-01-01', planted_in=container
+        )
+        germinated = PlantingEvent.objects.create(
+            planting=planting, event_type='germinated', date='2026-01-05', planted_in=container
+        )
+        transplanted = PlantingEvent.objects.create(
+            planting=planting, event_type='transplanted', date='2026-02-01', planted_in=destination
+        )
+
+        # Not in the container it was transplanted out of...
+        assert self._events(container) == []
+        # ...but in the destination, with its full history.
+        assert self._events(destination) == [planted, germinated, transplanted]
+
+
+class TestContainerDisplayExcludesMovedItems:
+    """Rendered container view omits items that have since moved elsewhere."""
+
+    def test_moved_planting_and_packet_not_shown_in_former_container(self, authed_client, container, packet):
+        destination = Container.objects.create(id=2, name='Destination')
+        planting = Planting.objects.create(id=1002, packet=packet)
+        PlantingEvent.objects.create(planting=planting, event_type='planted', date='2026-01-01', planted_in=container)
+        PlantingEvent.objects.create(
+            planting=planting, event_type='transplanted', date='2026-02-01', planted_in=destination
+        )
+        # The packet itself has been moved to the destination container.
+        packet.container = destination
+        packet.save(update_fields=['container'])
+
+        former = authed_client.post(
+            reverse('scan_hxpost'),
+            {'barcode': container.barcode},
+            HTTP_HX_REQUEST='true',
+        )
+
+        assertNotContains(former, planting.barcode)
+        assertNotContains(former, packet.barcode)
+        assertContains(former, 'This container is empty.')
+
+        moved_to = authed_client.post(
+            reverse('scan_hxpost'),
+            {'barcode': destination.barcode},
+            HTTP_HX_REQUEST='true',
+        )
+
+        assertContains(moved_to, planting.barcode)
+        assertContains(moved_to, packet.barcode)

@@ -114,10 +114,13 @@ class Container(BarcodedBase):
     def contents(self):
         """Return the packets and planting events stored in this container.
 
-        Planting events are grouped by their planting, and ordered by date
-        within each planting.
+        A planting's events are listed in the container the planting is
+        currently in: the target of its most recent transplant, or else the
+        container named by its most recent container event.  All of the
+        planting's events are shown (grouped by planting, ordered by date), so
+        its planted, germinated and transplanted events appear together.
         """
-        events = self.plantingevent_set.order_by('planting_id', 'date', 'pk')
+        events = PlantingEvent.objects.filter(planting__in=self.plantings).order_by('planting_id', 'date', 'pk')
         return list(self.packet_set.all()) + list(events)
 
     @property
