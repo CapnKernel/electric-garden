@@ -7,8 +7,8 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <meta name="description" content="FIXME: Sample project" />
-        <meta name="keywords" content="django,sample" />
+        <meta name="description" content="A planting management system for my vegetable garden" />
+        <meta name="keywords" content="plants,packets,plantings"/>
         <title>
             {% block title %}
                 {{ site_name }} Electric Garden
@@ -16,13 +16,16 @@
         </title>
 
         <!-- Bootstrap CSS -->
-        <link href="https://cdn.jsdelivr.net/npm/fastbootstrap@2.2.0/dist/css/fastbootstrap.min.css"
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
               rel="stylesheet"
-              integrity="sha256-V6lu+OdYNKTKTsVFBuQsyIlDiRWiOmtC8VQ8Lzdm2i4="
+              integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
               crossorigin="anonymous">
 
         <!-- Custom CSS -->
         <link rel="stylesheet" href="{% static 'css/style.css' %}" />
+
+        <!-- Flatpickr (Bootstrap-friendly date picker) -->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 
         <!-- HTMX -->
         {% htmx_script %}
@@ -74,6 +77,9 @@
                                 <a class="nav-link{{ nav.dash }}" href='{% url "app:top" %}'>Dashboard</a>
                             </li>
                             <li class="nav-item">
+                                <a class="nav-link{{ nav.scan }}" href="{% url 'app:scan' %}">Scan</a>
+                            </li>
+                            <li class="nav-item">
                                 <a class="nav-link"
                                    href="{% block item-admin-link %}{% url 'admin:index' %}{% endblock item-admin-link %}">Admin</a>
                             </li>
@@ -106,6 +112,9 @@
             {% block breadcrumbs %}
             {% endblock breadcrumbs %}
 
+            {% block h1 %}
+            {% endblock h1 %}
+
             {% block body %}
                 <p>
                     Classy content goes here.  Override the <tt>body</tt> block!
@@ -114,9 +123,13 @@
         </div>
 
         <!-- Bootstrap JS -->
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
-                integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+                integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
                 crossorigin="anonymous"></script>
+
+        <!-- Flatpickr JS -->
+        <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+        <script src="{% static 'js/datepicker.js' %}"></script>
 
         {# djlint:off #}{% comment %}{# djlint:on #}
         <!-- Toast container -->

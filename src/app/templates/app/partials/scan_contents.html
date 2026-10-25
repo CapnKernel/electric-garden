@@ -1,0 +1,102 @@
+{% comment %}
+Contents table for a scanned Container.  Expects ``obj`` to be a Container.
+
+Rows are grouped by planting (see ``Container.contents``), so each planting has
+a single row listing all of its events, and each packet has its own row.
+{% endcomment %}
+{% load garden_tags %}
+{% with contents=obj.contents %}
+    {% if contents %}
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h3 class="h5 mb-0">Contents</h3>
+                {% if obj.plantings %}
+                    <a href="{% url 'app:container_germination' pk=obj.pk %}" class="btn btn-primary btn-sm">Germination</a>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Barcode</th>
+                                <th>Plant</th>
+                                <th>Packet</th>
+                                <th>Brand</th>
+                                <th>Full name</th>
+                                <th>Expiry</th>
+                                <th>Last scanned</th>
+                                <th>Events</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% regroup contents by grouping_key as groups %}
+                            {% for group in groups %}
+                                {% with first=group.list.0 %}
+                                    <tr>
+                                        {% if first.verbose_name == 'planting event' %}
+                                            {% with planting=first.planting %}
+                                                <td>
+                                                    <a href="{{ planting.scan_url }}">{{ planting.barcode }}</a>
+                                                </td>
+                                                <td>
+                                                    <a href="{{ planting.packet.plant.scan_url }}">{{ planting.packet.plant.name }}</a>
+                                                </td>
+                                                <td>
+                                                    <a href="{{ planting.packet.scan_url }}">{{ planting.packet.barcode }}</a>
+                                                </td>
+                                                <td>{{ planting.packet.brand|default:"" }}</td>
+                                                <td>{{ planting.packet.full_name|default:"" }}</td>
+                                                <td>{{ planting.packet.expiry|default:"" }}</td>
+                                                <td>
+                                                    {% if planting.last_scanned_at %}
+                                                        {{ planting.last_scanned_at|date }} ({{ planting.last_scanned_at|timesince }} ago)
+                                                    {% else %}
+                                                        <span class="text-muted">Never</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% for event in group.list %}
+                                                        <div>
+                                                            <span class="badge bg-secondary">{{ event.get_event_type_display }}</span>
+                                                            {{ event.date|friendly_date }}
+                                                            {% if event.planted_in %}
+                                                                · <a href="{{ event.planted_in.scan_url }}">{{ event.planted_in.name }}</a>
+                                                            {% endif %}
+                                                            {% if event.location %}· {{ event.location }}{% endif %}
+                                                        </div>
+                                                    {% endfor %}
+                                                </td>
+                                            {% endwith %}
+                                        {% else %}
+                                            <td>
+                                                <a href="{{ first.scan_url }}">{{ first.barcode }}</a>
+                                            </td>
+                                            <td>
+                                                <a href="{{ first.plant.scan_url }}">{{ first.plant.name }}</a>
+                                            </td>
+                                            <td></td>
+                                            <td>{{ first.brand|default:"" }}</td>
+                                            <td>{{ first.full_name|default:"" }}</td>
+                                            <td>{{ first.expiry|default:"" }}</td>
+                                            <td>
+                                                {% if first.last_scanned_at %}
+                                                    {{ first.last_scanned_at|date }} ({{ first.last_scanned_at|timesince }} ago)
+                                                {% else %}
+                                                    <span class="text-muted">Never</span>
+                                                {% endif %}
+                                            </td>
+                                            <td></td>
+                                        {% endif %}
+                                    </tr>
+                                {% endwith %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% elif obj.verbose_name == 'container' %}
+        <div class="alert alert-info" role="alert">This container is empty.</div>
+    {% endif %}
+{% endwith %}

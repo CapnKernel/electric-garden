@@ -45,7 +45,6 @@ urlpatterns = [
     ),
     # app handles top-level
     path('', include('app.urls')),
-    path('garden/', include('garden.urls')),
 ]
 
 if any('pytest' in arg for arg in sys.argv) or 'pytest' in sys.modules:

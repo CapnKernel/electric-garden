@@ -1,0 +1,20 @@
+{% extends "app/base.html" %}
+
+{% load navtag %}
+
+{% block title %}
+    Germination - {{ container.name }} ({{ container.barcode }})
+{% endblock title %}
+
+{% block nav %}
+    {% nav "scan" %}
+    {{ block.super }}
+{% endblock nav %}
+
+{% block h1 %}
+    Germination - {{ container.name }} ({{ container.barcode }})
+{% endblock h1 %}
+
+{% block body %}
+    {% include "app/partials/container_germination_form.html" %}
+{% endblock body %}

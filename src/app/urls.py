@@ -1,20 +1,36 @@
-from django.contrib.auth.decorators import login_not_required
 from django.urls import path
-from django.utils.decorators import method_decorator
 from django.views.generic import TemplateView
 
-from . import views, wizard
+from . import views, wizard  # noqa: F401 - wizard is used by the commented-out URL block below
+from .planting import (
+    container_germination,
+    planting_edit,
+    planting_event_create,
+    planting_event_delete,
+    planting_event_edit,
+    planting_result,
+)
+from .scan import scan_hxpost, scan_page
 
 app_name = 'app'
 
 urlpatterns = [
-    path('', method_decorator(login_not_required)(TemplateView.as_view(template_name='app/top.html')), name='top'),
+    path('', views.top, name='top'),
     # HTMX endpoint returning Django messages as an OOB-swappable partial.
     path(
         'partials/messages/',
         TemplateView.as_view(template_name='app/base.html#messages-partial'),
         name='messages_partial',
     ),
+    # Garden URLs (formerly mounted under /garden/).
+    path('scan/', scan_page, name='scan'),
+    path('scan_hxpost/', scan_hxpost, name='scan_hxpost'),
+    path('planting/<int:pk>/edit/', planting_edit, name='planting_edit'),
+    path('planting/<int:pk>/result/', planting_result, name='planting_result'),
+    path('planting/<int:pk>/event/new/', planting_event_create, name='planting_event_create'),
+    path('planting/event/<int:pk>/edit/', planting_event_edit, name='planting_event_edit'),
+    path('planting/event/<int:pk>/delete/', planting_event_delete, name='planting_event_delete'),
+    path('container/<int:pk>/germination/', container_germination, name='container_germination'),
     # Wizard endpoints: Insert code from below.  FIXME: Remove from production
 ]
 

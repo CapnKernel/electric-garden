@@ -47,7 +47,6 @@ INSTALLED_APPS = [
     # See end of this file for debug tools
     # Apps in this project
     'app',
-    'garden',
     'authuser',  # Authuser must come last so `extends "base.html"` picks up app base.
 ]
 
@@ -145,6 +144,9 @@ USE_TZ = True
 
 USE_I18N = False
 USE_L10N = False
+
+# Overrides for en-AU date display formats (see conf/formats/en_AU/formats.py).
+FORMAT_MODULE_PATH = 'conf.formats'
 
 DATE_FORMAT = 'j-M-y'
 

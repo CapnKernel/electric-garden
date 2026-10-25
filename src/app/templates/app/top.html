@@ -12,8 +12,6 @@
     {{ block.super }}
 {% endblock nav %}
 
-{# FIXME: Make this page show something sensible if not logged in.  May need changes to the view. #}
-
 {% block breadcrumbs %}
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
@@ -22,18 +20,27 @@
     </nav>
 {% endblock breadcrumbs %}
 
+{% block h1 %}
+    <h1>Electric Garden</h1>
+{% endblock h1 %}
+
 {% block body %}
-    <h1>{{ site_name }}</h1>
-    <p>Welcome to {{ site_name }}.</p>
-    {% if user.is_authenticated %}
-        <p>Logged in as {{ user.email }}.</p>
-        <form method="post" action="{% url 'logout' %}">
-            {% csrf_token %}
-            <button type="submit">Log out</button>
-        </form>
-    {% else %}
-        <p><a href="{% url 'login' %}">Log in</a></p>
-    {% endif %}
+    <p>Let's track some plants.</p>
+
+    <ul class="list-group">
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            Plants
+            <span class="badge bg-primary rounded-pill">{{ plant_count }}</span>
+        </li>
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            Packets
+            <span class="badge bg-primary rounded-pill">{{ packet_count }}</span>
+        </li>
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            Plantings
+            <span class="badge bg-primary rounded-pill">{{ planting_count }}</span>
+        </li>
+    </ul>
 {% endblock body %}
 
 {% block extra_js %}

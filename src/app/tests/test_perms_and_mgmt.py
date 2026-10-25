@@ -1,40 +1,13 @@
 from urllib.parse import urlencode
 
-import pytest
 from django.urls import reverse
 from pytest_django.asserts import assertRedirects, assertTemplateUsed
 
 # ---------------------------------------------------------------------------
-# Top page: login required or not?
-# ---------------------------------------------------------------------------
-# This template ships with a top page that is *public* (the ``app:top`` view is
-# decorated with ``@login_not_required`` in ``app/urls.py``).
-#
-# If your app needs the top page to require authentication, remove the
-# ``login_not_required`` decorator from the ``app:top`` route, then swap the
-# two test functions below: delete/rename ``test_top_anonymous_works`` and
-# remove the ``@pytest.mark.skip`` from ``test_top_anonymous_fails``.  The
-# authenticated test (``test_top_authenticated_works``) works in both
-# configurations.
+# Top page requires authentication.
 # ---------------------------------------------------------------------------
 
 
-def test_top_anonymous_works(client, db):
-    """Top page is publicly accessible (current template default).
-
-    The ``app:top`` view is decorated with ``@login_not_required``, so an
-    anonymous request renders the page rather than redirecting to login.
-    """
-    response = client.get(reverse('app:top'))
-    assert response.status_code == 200
-    assertTemplateUsed(response, 'app/top.html')
-    assertTemplateUsed(response, 'app/base.html')
-    # Anonymous users should see a login link, not a logout form
-    assert b'Log in' in response.content
-    assert b'Logout' not in response.content
-
-
-@pytest.mark.skip(reason='Enable when the top page requires authentication (see note above).')
 def test_top_anonymous_fails(client, db):
     """Top page is inaccessible without authentication."""
     top = reverse('app:top')
@@ -105,27 +78,11 @@ def test_logout_requires_post(authed_client):
 # Logout redirect target
 # ---------------------------------------------------------------------------
 # ``LOGOUT_REDIRECT_URL`` is ``'/'`` in ``conf/settings.py``, so a successful
-# logout redirects to the top page.  Because the top page is public in this
-# template, that request returns 200 and shows the login link again.
-#
-# If your app requires login for the top page, the redirect to ``/`` will
-# itself bounce to the login page.  In that case, swap the two tests below:
-# remove the ``@pytest.mark.skip`` from ``test_logout_success_requires_login``
-# and skip/delete ``test_logout_success``.
+# logout redirects to the top page.  Because the top page requires login, the
+# redirect to ``/`` bounces to the login page.
 # ---------------------------------------------------------------------------
 
 
-def test_logout_success(authed_client):
-    """Logout via POST logs the user out and redirects to the top page."""
-    response = authed_client.post(reverse('logout'), follow=True)
-    top = reverse('app:top')
-    # LOGOUT_REDIRECT_URL == '/', so we land on the (public) top page.
-    assertRedirects(response, top)
-    # After logout, the top page should show the login link again
-    assert b'Log in' in response.content
-
-
-@pytest.mark.skip(reason='Enable when the top page requires authentication (see note above).')
 def test_logout_success_requires_login(authed_client):
     """Logout via POST logs the user out; top page then requires login."""
     response = authed_client.post(reverse('logout'), follow=True)
