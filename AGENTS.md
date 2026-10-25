@@ -48,6 +48,9 @@ Do not offer to run all tests unless asked.
 ## Code style
 
 - Ruff is the linter and formatter (config in `pyproject.toml`).
+  Executable is somewhere in here:
+    `$HOME/.vscode/extensions/charliermarsh.ruff-*-linux-x64/bundled/libs/bin/ruff`
+  This will expand to multiple versions, so it can't be used directly.
 - Line length 119; single quotes for internal strings.
 - `djlint` is used for Django template linting.
 - VSCode is configured to use ruff as the Python formatter (see
