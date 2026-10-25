@@ -372,3 +372,10 @@ class TestContainerDisplayExcludesMovedItems:
 
         assertContains(moved_to, planting.barcode)
         assertContains(moved_to, packet.barcode)
+
+
+class TestGetAbsoluteUrl:
+    """The canonical model URL is the scan URL."""
+
+    def test_matches_scan_url(self, plant):
+        assert plant.get_absolute_url() == plant.scan_url

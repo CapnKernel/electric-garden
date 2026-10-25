@@ -3,10 +3,11 @@
 from datetime import timedelta
 
 import pytest
-from django.template import Context, Engine, Template
+from django.template import Context, Engine, Template, TemplateSyntaxError
 from django.utils import timezone
 
-from app.templatetags.garden_tags import friendly_date
+from app.models import Packet, Plant
+from app.templatetags.garden_tags import friendly_date, join_model_ids
 
 
 def _render(source):
@@ -65,6 +66,32 @@ def test_role_heading_blank_renders_nothing():
     rendered = _render('{% load app_tags %}{% card_title %}   \n  {% endcard_title %}')
 
     assert rendered.strip() == ''
+
+
+def test_join_model_ids_defaults_to_comma(db):
+    first = Plant.objects.create(id=1, code='A', name='A')
+    second = Plant.objects.create(id=2, code='B', name='B')
+
+    assert join_model_ids([first, second]) == '1,2'
+
+
+def test_join_model_ids_accepts_separator(db):
+    first = Plant.objects.create(id=1, code='A', name='A')
+    second = Plant.objects.create(id=2, code='B', name='B')
+
+    assert join_model_ids([first, second], '|') == '1|2'
+
+
+def test_join_model_ids_empty_list():
+    assert join_model_ids([]) == ''
+
+
+def test_join_model_ids_rejects_mixed_models(db):
+    plant = Plant.objects.create(id=1, code='A', name='A')
+    packet = Packet.objects.create(id=101, plant=plant)
+
+    with pytest.raises(TemplateSyntaxError):
+        join_model_ids([plant, packet])
 
 
 def test_today_renders_as_today():

@@ -6,7 +6,7 @@ information, and records the scan time on the object via ``mark_scanned()``.
 """
 
 from django.shortcuts import render
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from .models import Container, Packet, Plant, Planting
 
@@ -59,6 +59,7 @@ def render_scan_result(request, obj):
     return render(request, 'app/scan.html#scan-result', {'barcode': obj.barcode, 'obj': obj, 'error': None})
 
 
+@require_GET
 def scan_page(request):
     """Full page presenting a prefocused barcode input.
 

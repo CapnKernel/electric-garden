@@ -131,7 +131,7 @@ class TestContainerGerminationView:
             HTTP_HX_REQUEST='true',
         )
 
-        assert response.status_code == 204
+        assert response.status_code == 200
         assert response.headers['HX-Redirect'] == f'{reverse("app:scan")}?barcode={container.barcode}'
 
     def test_post_clears_germination_and_removes_event(self, authed_client, container, planting):

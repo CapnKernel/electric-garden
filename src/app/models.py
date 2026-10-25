@@ -79,6 +79,10 @@ class BarcodedBase(models.Model):
 
         return reverse('app:scan', query={'barcode': self.barcode})
 
+    def get_absolute_url(self):
+        """Return the canonical public URL for this object."""
+        return self.scan_url
+
     @classmethod
     def pk_from_barcode(cls, barcode):
         """Return the primary key encoded in ``barcode`` for this model."""

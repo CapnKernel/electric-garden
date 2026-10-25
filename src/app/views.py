@@ -1,13 +1,16 @@
 from django.shortcuts import render
+from django.views.decorators.http import require_GET
 
 from .models import Packet, Plant, Planting
 
 
+@require_GET
 def top(request):
     """Dashboard showing counts of active plants, packets and plantings."""
     return render(request, 'app/top.html')
 
 
+@require_GET
 def dash_stats(request):
     """HTMX endpoint returning the dashboard statistics fragment."""
     ctx = {

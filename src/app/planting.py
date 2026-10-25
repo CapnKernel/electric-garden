@@ -2,11 +2,11 @@
 
 from django.contrib import messages
 from django.db import transaction
-from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
+from django_htmx.http import HttpResponseClientRedirect
 
 from .forms import GerminationRowForm, PlantingEventForm, PlantingForm
 from .models import Container, Planting, PlantingEvent
@@ -39,6 +39,7 @@ def planting_edit(request, pk):
     return render(request, 'app/planting_edit.html', context)
 
 
+@require_GET
 def planting_result(request, pk):
     """Return the ``scan-result`` fragment for a planting (GET).
 
@@ -168,10 +169,8 @@ def container_germination(request, pk):
 def _scan_redirect(request, container):
     """Redirect to the container's scan page, honouring htmx and plain requests."""
     scan_url = f'{reverse("app:scan")}?barcode={container.barcode}'
-    if request.headers.get('HX-Request'):
-        response = HttpResponse(status=204)
-        response['HX-Redirect'] = scan_url
-        return response
+    if request.htmx:
+        return HttpResponseClientRedirect(scan_url)
     return redirect(scan_url)
 
 
