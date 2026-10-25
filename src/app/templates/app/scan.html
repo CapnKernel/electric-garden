@@ -1,6 +1,8 @@
 {% extends "app/base.html" %}
 
 {% load navtag %}
+{% load garden_tags %}
+{% load app_tags %}
 
 {% block title %}
     Scan barcode
@@ -10,6 +12,20 @@
     {% nav "scan" %}
     {{ block.super }}
 {% endblock nav %}
+
+{% block barcode_form %}
+{% endblock barcode_form %}
+
+{% block breadcrumbs %}
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{% url 'app:top' %}">Dashboard</a>
+            </li>
+            <li class="breadcrumb-item active">Scan</li>
+        </ol>
+    </nav>
+{% endblock breadcrumbs %}
 
 {% block h1 %}
     Scan barcode
@@ -23,7 +39,7 @@
             {% elif obj %}
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h2 class="h5 mb-0">{{ obj }}</h2>
+                        {% card_title %}{{ obj }}{% endcard_title %}
                         <span class="badge bg-secondary">{{ obj.verbose_name }}</span>
                     </div>
                     <div class="card-body">
@@ -46,11 +62,11 @@
                                     </td>
                                 </tr>
                                 {% if obj.verbose_name == 'plant' %}
-                                    {% include "app/partials/scan_plant.html" %}
+                                    {% partial scan-plant %}
                                 {% elif obj.verbose_name == 'packet' %}
-                                    {% include "app/partials/scan_packet.html" %}
+                                    {% partial scan-packet %}
                                 {% elif obj.verbose_name == 'container' %}
-                                    {% include "app/partials/scan_container.html" %}
+                                    {% partial scan-container %}
                                 {% endif %}
                             </tbody>
                         </table>
@@ -58,11 +74,11 @@
                 </div>
 
                 {% if obj.verbose_name == 'container' %}
-                    {% include "app/partials/scan_contents.html" %}
+                    {% partial scan-contents %}
                 {% elif obj.verbose_name == 'planting' %}
-                    {% include "app/partials/scan_planting.html" %}
+                    {% partial scan-planting %}
                 {% elif obj.verbose_name == 'packet' %}
-                    {% include "app/partials/scan_packet_plantings.html" %}
+                    {% partial scan-packet-plantings %}
                 {% endif %}
             {% endif %}
 
@@ -84,4 +100,369 @@
             </form>
         </div>
     {% endpartialdef scan-result %}
+
+    {# Detail rows for a scanned Plant.  Expects ``obj`` to be a Plant. #}
+    {% partialdef scan-plant %}
+        {% if obj.code %}
+            <tr>
+                <th scope="row">Code</th>
+                <td>{{ obj.code }}</td>
+            </tr>
+        {% endif %}
+        {% if obj.spacing %}
+            <tr>
+                <th scope="row">Spacing</th>
+                <td>{{ obj.spacing }}</td>
+            </tr>
+        {% endif %}
+        {% if obj.germination %}
+            <tr>
+                <th scope="row">Germination</th>
+                <td>Around {{ obj.germination }} days</td>
+            </tr>
+        {% endif %}
+        {% if obj.harvest %}
+            <tr>
+                <th scope="row">Harvest</th>
+                <td>Around {{ obj.harvest }} weeks</td>
+            </tr>
+        {% endif %}
+    {% endpartialdef scan-plant %}
+
+    {# Detail rows for a scanned Packet.  Expects ``obj`` to be a Packet. #}
+    {% partialdef scan-packet %}
+        <tr>
+            <th scope="row">Plant</th>
+            <td>
+                <a href="{{ obj.plant.scan_url }}">{{ obj.plant.name }}</a>
+            </td>
+        </tr>
+        {% if obj.container %}
+            <tr>
+                <th scope="row">Container</th>
+                <td>
+                    <a href="{{ obj.container.scan_url }}">{{ obj.container.name }}</a>
+                </td>
+            </tr>
+        {% endif %}
+        {% if obj.brand %}
+            <tr>
+                <th scope="row">Brand</th>
+                <td>{{ obj.brand }}</td>
+            </tr>
+        {% endif %}
+        {% if obj.full_name %}
+            <tr>
+                <th scope="row">Full name</th>
+                <td>{{ obj.full_name }}</td>
+            </tr>
+        {% endif %}
+        {% if obj.expiry %}
+            <tr>
+                <th scope="row">Expiry</th>
+                <td>{{ obj.expiry }}</td>
+            </tr>
+        {% endif %}
+        {% if obj.notes %}
+            <tr>
+                <th scope="row">Notes</th>
+                <td>{{ obj.notes }}</td>
+            </tr>
+        {% endif %}
+    {% endpartialdef scan-packet %}
+
+    {# Detail rows for a scanned Container.  Expects ``obj`` to be a Container. #}
+    {% partialdef scan-container %}
+        <tr>
+            <th scope="row">Name</th>
+            <td>{{ obj.name }}</td>
+        </tr>
+    {% endpartialdef scan-container %}
+
+    {# Plantings table for a scanned Packet.  Expects ``obj`` to be a Packet. #}
+    {% partialdef scan-packet-plantings %}
+        {% with plantings=obj.plantings %}
+            {% if plantings %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        {% card_title %}Plantings{% endcard_title %}
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Barcode</th>
+                                        <th>Planted</th>
+                                        <th>Germinated</th>
+                                        <th>Last scanned</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for planting in plantings %}
+                                        <tr>
+                                            <td>
+                                                <a href="{{ planting.scan_url }}">{{ planting.barcode }}</a>
+                                            </td>
+                                            <td>{{ planting.first_event_date|friendly_date|default:"-" }}</td>
+                                            <td>{{ planting.germinated|default:"-" }}</td>
+                                            <td>
+                                                {% if planting.last_scanned_at %}
+                                                    {{ planting.last_scanned_at|date }} ({{ planting.last_scanned_at|timesince }} ago)
+                                                {% else %}
+                                                    <span class="text-muted">Never</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        {% endwith %}
+    {% endpartialdef scan-packet-plantings %}
+
+    {# Planting card for a scanned Planting.  Expects ``obj`` to be a Planting. #}
+    {% partialdef scan-planting %}
+        <div class="card mb-4">
+            <div class="card-header">
+                {% card_title %}Planting{% endcard_title %}
+            </div>
+            <div class="card-body">
+                <table class="table table-sm table-striped mb-3">
+                    <tbody>
+                        <tr>
+                            <th scope="row">Plant</th>
+                            <td>
+                                <a href="{{ obj.packet.plant.scan_url }}">{{ obj.packet.plant.name }}</a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Packet</th>
+                            <td>
+                                <a href="{{ obj.packet.scan_url }}">{{ obj.packet.barcode }} ({{ obj.packet.plant.name }})</a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Germinated</th>
+                            <td>{{ obj.germinated|default:"-" }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="d-flex justify-content-between align-items-center">
+                    {% subsection_title %}Events{% endsubsection_title %}
+                    <button type="button"
+                            class="btn btn-primary btn-sm"
+                            hx-get="{% url 'app:planting_event_create' pk=obj.pk %}"
+                            hx-target="#scan-result"
+                            hx-swap="outerHTML">New event</button>
+                </div>
+                {% if obj.events.all %}
+                    <table class="table table-sm table-striped mb-3">
+                        <thead>
+                            <tr>
+                                <th>Event</th>
+                                <th>Date</th>
+                                <th>Planted in</th>
+                                <th>Location</th>
+                                <th>Notes</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for event in obj.events.all %}
+                                <tr>
+                                    <td>{{ event.get_event_type_display }}</td>
+                                    <td>{{ event.date|friendly_date }}</td>
+                                    <td>
+                                        {% if event.planted_in %}
+                                            <a href="{{ event.planted_in.scan_url }}">{{ event.planted_in.name }} ({{ event.planted_in.barcode }})</a>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ event.location|default:"-" }}</td>
+                                    <td>{{ event.notes|default:"-" }}</td>
+                                    <td class="text-nowrap">
+                                        <button type="button"
+                                                class="btn btn-outline-secondary btn-sm"
+                                                hx-get="{% url 'app:planting_event_edit' pk=event.pk %}"
+                                                hx-target="#scan-result"
+                                                hx-swap="outerHTML">Edit</button>
+                                        <button type="button"
+                                                class="btn btn-outline-danger btn-sm"
+                                                hx-post="{% url 'app:planting_event_delete' pk=event.pk %}"
+                                                hx-target="#scan-result"
+                                                hx-swap="outerHTML"
+                                                hx-confirm="Delete this event?">Delete</button>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p class="text-muted">No events recorded.</p>
+                {% endif %}
+                <a href="{% url 'app:planting_edit' pk=obj.pk %}" class="btn btn-primary btn-sm">Edit this planting</a>
+            </div>
+        </div>
+    {% endpartialdef scan-planting %}
+
+    {% comment %}
+    Contents table for a scanned Container.  Expects ``obj`` to be a Container.
+
+    Rows are grouped by planting (see ``Container.contents``), so each planting has
+    a single row listing all of its events, and each packet has its own row.
+    {% endcomment %}
+    {% partialdef scan-contents %}
+        {% with contents=obj.contents %}
+            {% if contents %}
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        {% card_title %}Contents{% endcard_title %}
+                        {% if obj.plantings %}
+                            <a href="{% url 'app:container_germination' pk=obj.pk %}"
+                               class="btn btn-primary btn-sm">Germination</a>
+                        {% endif %}
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Barcode</th>
+                                        <th>Plant</th>
+                                        <th>Packet</th>
+                                        <th>Brand</th>
+                                        <th>Full name</th>
+                                        <th>Expiry</th>
+                                        <th>Last scanned</th>
+                                        <th>Events</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% regroup contents by grouping_key as groups %}
+                                    {% for group in groups %}
+                                        {% with first=group.list.0 %}
+                                            <tr>
+                                                {% if first.verbose_name == 'planting event' %}
+                                                    {% with planting=first.planting %}
+                                                        <td>
+                                                            <a href="{{ planting.scan_url }}">{{ planting.barcode }}</a>
+                                                        </td>
+                                                        <td>
+                                                            <a href="{{ planting.packet.plant.scan_url }}">{{ planting.packet.plant.name }}</a>
+                                                        </td>
+                                                        <td>
+                                                            <a href="{{ planting.packet.scan_url }}">{{ planting.packet.barcode }}</a>
+                                                        </td>
+                                                        <td>{{ planting.packet.brand|default:"" }}</td>
+                                                        <td>{{ planting.packet.full_name|default:"" }}</td>
+                                                        <td>{{ planting.packet.expiry|default:"" }}</td>
+                                                        <td>
+                                                            {% if planting.last_scanned_at %}
+                                                                {{ planting.last_scanned_at|date }} ({{ planting.last_scanned_at|timesince }} ago)
+                                                            {% else %}
+                                                                <span class="text-muted">Never</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td>
+                                                            {% for event in group.list %}
+                                                                <div>
+                                                                    <span class="badge bg-secondary">{{ event.get_event_type_display }}</span>
+                                                                    {{ event.date|friendly_date }}
+                                                                    {% if event.planted_in %}
+                                                                        · <a href="{{ event.planted_in.scan_url }}">{{ event.planted_in.name }}</a>
+                                                                    {% endif %}
+                                                                    {% if event.location %}· {{ event.location }}{% endif %}
+                                                                </div>
+                                                            {% endfor %}
+                                                        </td>
+                                                    {% endwith %}
+                                                {% else %}
+                                                    <td>
+                                                        <a href="{{ first.scan_url }}">{{ first.barcode }}</a>
+                                                    </td>
+                                                    <td>
+                                                        <a href="{{ first.plant.scan_url }}">{{ first.plant.name }}</a>
+                                                    </td>
+                                                    <td></td>
+                                                    <td>{{ first.brand|default:"" }}</td>
+                                                    <td>{{ first.full_name|default:"" }}</td>
+                                                    <td>{{ first.expiry|default:"" }}</td>
+                                                    <td>
+                                                        {% if first.last_scanned_at %}
+                                                            {{ first.last_scanned_at|date }} ({{ first.last_scanned_at|timesince }} ago)
+                                                        {% else %}
+                                                            <span class="text-muted">Never</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td></td>
+                                                {% endif %}
+                                            </tr>
+                                        {% endwith %}
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            {% elif obj.verbose_name == 'container' %}
+                <div class="alert alert-info" role="alert">This container is empty.</div>
+            {% endif %}
+        {% endwith %}
+    {% endpartialdef scan-contents %}
+
+    {# Form for creating or editing a PlantingEvent.  Expects ``planting``, ``form`` and ``event``. #}
+    {% partialdef planting-event-form %}
+        <div id="scan-result">
+            <div class="card mb-4">
+                <div class="card-header">
+                    {% card_title %}
+                        {% if event %}
+                            Edit event
+                        {% else %}
+                            New event
+                        {% endif %}
+                    {% endcard_title %}
+                </div>
+                <div class="card-body">
+                    <form hx-post="{% if event %}{% url 'app:planting_event_edit' pk=event.pk %}{% else %}{% url 'app:planting_event_create' pk=planting.pk %}{% endif %}"
+                          hx-target="#scan-result"
+                          hx-swap="outerHTML">
+                        {% csrf_token %}
+                        {% for field in form %}
+                            <div class="mb-3">
+                                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                {% if field.name == 'date' %}
+                                    <div class="input-group">
+                                        {{ field }}
+                                        <button type="button"
+                                                class="btn btn-primary"
+                                                onclick="setToday('{{ field.id_for_label }}')">Today</button>
+                                    </div>
+                                {% else %}
+                                    {{ field }}
+                                {% endif %}
+                                {% if field.help_text %}
+                                    <div class="form-text">{{ field.help_text }}</div>
+                                {% endif %}
+                                {% for error in field.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+                        <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                        <button type="button"
+                                class="btn btn-secondary btn-sm"
+                                hx-get="{% url 'app:planting_result' pk=planting.pk %}"
+                                hx-target="#scan-result"
+                                hx-swap="outerHTML">Cancel</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    {% endpartialdef planting-event-form %}
 {% endblock body %}

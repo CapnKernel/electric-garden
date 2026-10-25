@@ -43,9 +43,28 @@ def test_renders_counts(authed_client, garden_data):
     assertContains(response, 'Plantings')
 
 
-def test_counts_exclude_deleted(authed_client, garden_data):
+def test_loads_stats_partial_via_htmx(authed_client, garden_data):
+    """The dashboard fetches its statistics from the dash_stats partial."""
     response = authed_client.get(reverse('app:top'))
 
+    assertContains(response, reverse('app:dash_stats'))
+    assertContains(response, 'hx-trigger="load"')
+
+
+def test_partial_counts_exclude_deleted(authed_client, garden_data):
+    response = authed_client.get(reverse('app:dash_stats'))
+
+    assert response.status_code == 200
     assert response.context['plant_count'] == 2
     assert response.context['packet_count'] == 3
     assert response.context['planting_count'] == 1
+
+
+def test_partial_renders_counts(authed_client, garden_data):
+    response = authed_client.get(reverse('app:dash_stats'))
+
+    content = response.content.decode()
+    assert '<!DOCTYPE html>' not in content
+    assertContains(response, 'display-6">2<')  # plants
+    assertContains(response, 'display-6">3<')  # packets
+    assertContains(response, 'display-6">1<')  # plantings

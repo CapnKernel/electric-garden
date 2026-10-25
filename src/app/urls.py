@@ -16,6 +16,7 @@ app_name = 'app'
 
 urlpatterns = [
     path('', views.top, name='top'),
+    path('partials/dash-stats/', views.dash_stats, name='dash_stats'),
     # HTMX endpoint returning Django messages as an OOB-swappable partial.
     path(
         'partials/messages/',

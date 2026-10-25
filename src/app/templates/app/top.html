@@ -2,6 +2,7 @@
 
 {% load static %}
 {% load navtag %}
+{% load app_tags %}
 
 {% block title %}
     Electric Garden
@@ -21,26 +22,43 @@
 {% endblock breadcrumbs %}
 
 {% block h1 %}
-    <h1>Electric Garden</h1>
+    Electric Garden
 {% endblock h1 %}
 
 {% block body %}
     <p>Let's track some plants.</p>
 
-    <ul class="list-group">
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-            Plants
-            <span class="badge bg-primary rounded-pill">{{ plant_count }}</span>
-        </li>
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-            Packets
-            <span class="badge bg-primary rounded-pill">{{ packet_count }}</span>
-        </li>
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-            Plantings
-            <span class="badge bg-primary rounded-pill">{{ planting_count }}</span>
-        </li>
-    </ul>
+    <div class="row mt-4"
+         hx-get="{% url 'app:dash_stats' %}"
+         hx-trigger="load">
+        {% partialdef dash-stats-cards %}
+            <div class="col-md-4">
+                <div class="card text-center inventory-card">
+                    <div class="card-body">
+                        {% card_title %}Plants{% endcard_title %}
+                        <p class="card-text display-6">{{ plant_count }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-center inventory-card">
+                    <div class="card-body">
+                        {% card_title %}Packets{% endcard_title %}
+                        <p class="card-text display-6">{{ packet_count }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-center inventory-card">
+                    <div class="card-body">
+                        {% card_title %}Plantings{% endcard_title %}
+                        <p class="card-text display-6">{{ planting_count }}</p>
+                    </div>
+                </div>
+            </div>
+        {% endpartialdef dash-stats-cards %}
+        {% partial dash-stats-cards %}
+    </div>
 {% endblock body %}
 
 {% block extra_js %}

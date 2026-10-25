@@ -1,6 +1,7 @@
 {% extends "app/base.html" %}
 {% load static %}
 {% load navtag %}
+{% load app_tags %}
 
 {% block title %}
     Relabel: {{ item.name }} - Inventory
@@ -34,7 +35,7 @@
 {% block body %}
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <h2 class="card-title mb-0">Relabel: {{ item.name }}</h2>
+            {% card_title %}Relabel: {{ item.name }}{% endcard_title %}
             <code>{{ item.barcode_string }}</code>
         </div>
         <div class="card-body">
@@ -175,7 +176,7 @@
                     </div>
 
                     <div class="alert alert-info">
-                        <h5 class="alert-heading">Review your changes</h5>
+                        {% alert_title %}Review your changes{% endalert_title %}
                         <p class="mb-0">Confirm the details below. Changes are applied when you click Apply.</p>
                     </div>
 

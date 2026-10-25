@@ -1,6 +1,7 @@
 {% extends "app/base.html" %}
 {% load garden_tags %}
 {% load navtag %}
+{% load app_tags %}
 
 {% block title %}
     Edit planting {{ planting.barcode }}
@@ -10,6 +11,23 @@
     {% nav "scan" %}
     {{ block.super }}
 {% endblock nav %}
+
+{% block barcode_form %}
+{% endblock barcode_form %}
+
+{% block breadcrumbs %}
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{% url 'app:top' %}">Dashboard</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{% url 'app:scan' %}">Scan</a>
+            </li>
+            <li class="breadcrumb-item active">Edit planting {{ planting.barcode }}</li>
+        </ol>
+    </nav>
+{% endblock breadcrumbs %}
 
 {% block h1 %}
     Edit planting {{ planting.barcode }}
@@ -40,7 +58,7 @@
 
     <div class="card">
         <div class="card-header">
-            <h3 class="h5 mb-0">Events</h3>
+            {% card_title %}Events{% endcard_title %}
         </div>
         <div class="card-body">
             {% if planting.events.all %}

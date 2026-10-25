@@ -1,6 +1,7 @@
 {% load static %}
 {% load navtag %}
 {% load django_htmx %}
+{% load app_tags %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -85,6 +86,18 @@
                             </li>
                         </ul>
                     {% endblock nav %}
+                    {% block barcode_form %}
+                        <form class="d-flex me-3" method="get" action="{% url 'app:scan' %}">
+                            <input class="form-control me-2"
+                                   type="text"
+                                   id="navbar-barcode"
+                                   name="barcode"
+                                   placeholder="Scan barcode..."
+                                   value="{{ barcode_value }}"
+                                   aria-label="Scan barcode"
+                                   autocomplete="off">
+                        </form>
+                    {% endblock barcode_form %}
                     <ul class="navbar-nav">
                         {% if user.is_authenticated %}
                             <li class="nav-item">
@@ -112,8 +125,10 @@
             {% block breadcrumbs %}
             {% endblock breadcrumbs %}
 
-            {% block h1 %}
-            {% endblock h1 %}
+            {% heading %}
+                {% block h1 %}
+                {% endblock h1 %}
+            {% endheading %}
 
             {% block body %}
                 <p>
@@ -178,6 +193,18 @@
             });
         </script>
         {% endcomment %}
+
+        <script>
+            // The autofocus attribute only applies on initial document parse. It is
+            // ignored when a page is restored from the back/forward cache (bfcache),
+            // so explicitly focus the navbar barcode field on every load.
+            window.addEventListener('pageshow', function () {
+                const barcodeInput = document.getElementById('navbar-barcode');
+                if (barcodeInput) {
+                    barcodeInput.focus();
+                }
+            });
+        </script>
 
         {% if css_body_background_colour %}
             <script>

@@ -68,7 +68,7 @@ def planting_event_create(request, pk):
         form = PlantingEventForm()
     return render(
         request,
-        'app/partials/planting_event_form.html',
+        'app/scan.html#planting-event-form',
         {'planting': planting, 'form': form, 'event': None},
     )
 
@@ -92,7 +92,7 @@ def planting_event_edit(request, pk):
         form = PlantingEventForm(instance=event)
     return render(
         request,
-        'app/partials/planting_event_form.html',
+        'app/scan.html#planting-event-form',
         {'planting': event.planting, 'form': form, 'event': event},
     )
 
@@ -156,7 +156,7 @@ def container_germination(request, pk):
         rows = list(zip(plantings, forms))
         return render(
             request,
-            'app/partials/container_germination_form.html',
+            'app/container_germination.html#container-germination-form',
             {'container': container, 'rows': rows},
         )
 

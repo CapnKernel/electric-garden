@@ -8,4 +8,4 @@ quote-style = "single"
 
 [tool.djlint]
 # Tell djLint about custom template tags, so contents are indented one level.
-custom_blocks = "partialdef"
+custom_blocks = "heading,card_title,section_title,subsection_title,alert_title,page_alert_title,partialdef"
