@@ -51,7 +51,7 @@ STATIC_URL = f'{SCRIPT_NAME}/static/'
 MEDIA_ROOT = '/data/media/'
 MEDIA_URL = f'{SCRIPT_NAME}/media/'
 
-ADMINS = [('Mitch Davis', 'mjd@garden.example.com')]
+ADMINS = [('Mitch Davis', 'mjd@example.com')]
 EMAIL_DEFAULT_FROM = os.environ.get('EMAIL_DEFAULT_FROM')
 
 # Shared secret for the Google Sheets webhook (App Script -> Django).

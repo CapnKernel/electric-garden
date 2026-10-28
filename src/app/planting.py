@@ -196,17 +196,18 @@ def _save_germination(container, plantings, forms):
             )
             if germinated:
                 if event is None:
+                    # A germinated event records only when germination was seen;
+                    # the container and location stay on the planted event (see
+                    # PlantingEvent.clean).
                     PlantingEvent.objects.create(
                         planting=planting,
                         event_type=PlantingEvent.EventType.GERMINATED,
                         date=today,
-                        planted_in=container,
                     )
                     changed = True
-                elif event.date != today or event.planted_in_id != container.pk:
+                elif event.date != today:
                     event.date = today
-                    event.planted_in = container
-                    event.save(update_fields=['date', 'planted_in'])
+                    event.save(update_fields=['date'])
                     changed = True
             elif event is not None:
                 event.delete()

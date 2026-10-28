@@ -3,6 +3,7 @@
 from datetime import date
 
 import pytest
+from django.core.exceptions import ValidationError
 
 from app.models import Container, Packet, Plant, Planting, PlantingEvent
 
@@ -81,12 +82,12 @@ def test_create_rejects_id_and_barcode_together(db):
 class TestPlantedDate:
     """Tests for ``Planting.planted_date``."""
 
-    def test_returns_earliest_planted_event(self, db, packet):
+    def test_returns_planted_event(self, db, packet):
         planting = Planting.objects.create(id=2, packet=packet)
+        PlantingEvent.objects.create(planting=planting, event_type=PlantingEvent.EventType.OTHER, date='2026-01-15')
         PlantingEvent.objects.create(planting=planting, event_type=PlantingEvent.EventType.PLANTED, date='2026-02-01')
-        PlantingEvent.objects.create(planting=planting, event_type=PlantingEvent.EventType.PLANTED, date='2026-01-15')
 
-        assert planting.planted_date == date(2026, 1, 15)
+        assert planting.planted_date == date(2026, 2, 1)
 
     def test_ignores_other_event_types(self, db, packet):
         planting = Planting.objects.create(id=3, packet=packet)
@@ -100,3 +101,25 @@ class TestPlantedDate:
         planting = Planting.objects.create(id=4, packet=packet)
 
         assert planting.planted_date is None
+
+
+class TestSinglePlantedEvent:
+    """A planting has at most one ``planted`` event (see the model constraint)."""
+
+    def test_second_planted_event_rejected(self, db, packet):
+        planting = Planting.objects.create(id=5, packet=packet)
+        PlantingEvent.objects.create(planting=planting, event_type=PlantingEvent.EventType.PLANTED, date='2026-01-01')
+
+        with pytest.raises(ValidationError):
+            PlantingEvent.objects.create(
+                planting=planting, event_type=PlantingEvent.EventType.PLANTED, date='2026-02-01'
+            )
+
+    def test_transplant_event_allowed(self, db, packet):
+        planting = Planting.objects.create(id=6, packet=packet)
+        PlantingEvent.objects.create(planting=planting, event_type=PlantingEvent.EventType.PLANTED, date='2026-01-01')
+        PlantingEvent.objects.create(
+            planting=planting, event_type=PlantingEvent.EventType.TRANSPLANTED, date='2026-02-01'
+        )
+
+        assert planting.events.count() == 2

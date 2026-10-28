@@ -1,3 +1,5 @@
+# Project context for AI coding assistants
+
 This file provides persistent context that should be read at the start of every
 session. Keep it up to date as the project evolves.
 

@@ -1,6 +1,7 @@
 import re
 
 from auditlog.registry import auditlog
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.urls import reverse
@@ -230,9 +231,35 @@ class Planting(BarcodedBase):
         return first.date if first else None
 
     @property
+    def latest_event(self):
+        """Most recent event for this planting, or ``None``.
+
+        Ties on ``date`` are broken the same way as in
+        ``Container.plantings``, so a transplant outranks a germination on the
+        same day.
+        """
+        return self.events.annotate(recency=PLANTING_EVENT_RECENCY).order_by('-date', '-recency', '-pk').first()
+
+    @property
+    def location_event(self):
+        """Most recent event that records a container or location, or ``None``.
+
+        ``germinated`` events carry no location details (see
+        ``PlantingEvent.clean``), so they are skipped: a planting's location is
+        whatever its latest ``planted`` or ``transplanted`` event recorded.
+        """
+        located = models.Q(planted_in__isnull=False) | (models.Q(location__isnull=False) & ~models.Q(location=''))
+        return (
+            self.events.filter(located)
+            .annotate(recency=PLANTING_EVENT_RECENCY)
+            .order_by('-date', '-recency', '-pk')
+            .first()
+        )
+
+    @property
     def location(self):
-        """Location recorded on the planting's most recent event, if any."""
-        event = self.events.order_by('-date', '-pk').first()
+        """Location recorded on the planting's most recent located event, if any."""
+        event = self.location_event
         return event.location if event is not None else None
 
     def __str__(self):
@@ -264,6 +291,14 @@ class PlantingEvent(models.Model):
 
     class Meta:
         ordering = ['date', 'pk']
+        constraints = [
+            # A planting is planted once; later moves are transplant events.
+            models.UniqueConstraint(
+                fields=['planting'],
+                condition=models.Q(event_type='planted'),
+                name='unique_planted_event_per_planting',
+            ),
+        ]
 
     @property
     def verbose_name(self):
@@ -282,6 +317,38 @@ class PlantingEvent(models.Model):
         can blank the repeated planting columns with ``{% ifchanged %}``.
         """
         return ('planting', self.planting_id)
+
+    @property
+    def has_location_details(self):
+        """Whether this event carries a container or location."""
+        return self.planted_in_id is not None or self.location is not None
+
+    def clean(self):
+        """Reject invalid event combinations.
+
+        Location details belong to the ``planted`` and ``transplanted`` events;
+        a ``germinated`` event records only when germination was seen.  Storing
+        the same container or location on it would duplicate the preceding
+        event's data and let the two copies drift apart.
+
+        A planting is planted once (see the ``unique_planted_event_per_planting``
+        constraint); later moves are ``transplanted`` events.
+        """
+        super().clean()
+        if self.event_type == self.EventType.GERMINATED and self.has_location_details:
+            raise ValidationError({'planted_in': 'A germinated event cannot have a container or location set.'})
+        if (
+            self.event_type == self.EventType.PLANTED
+            and self.pk is None
+            and self.planting_id is not None
+            and PlantingEvent.objects.filter(planting_id=self.planting_id, event_type=self.EventType.PLANTED).exists()
+        ):
+            raise ValidationError({'event_type': 'This planting already has a planted event.'})
+
+    def save(self, *args, **kwargs):
+        """Validate the event before writing it, so a bad row cannot be saved."""
+        self.clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.get_event_type_display()} on {self.date}'

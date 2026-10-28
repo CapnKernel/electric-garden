@@ -88,7 +88,7 @@ DATABASES = {
 STATIC_ROOT = '/var/www/register-static/'
 MEDIA_ROOT = '/var/www/register-media/'
 
-ADMINS = [("Mitch Davis", "mjd@electric-garden.example.com")]
+ADMINS = [("Mitch Davis", "mjd@example.com")]
 EMAIL_DEFAULT_FROM = 'noreply@example.com'
 
 DBBACKUP_HOSTNAME = 'website.example.com'

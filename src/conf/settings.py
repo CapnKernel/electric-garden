@@ -232,8 +232,8 @@ MAILERS = {
     },
 }
 
-# Google Sheets webhook (App Script -> Django) is historical and no longer active
-SHEETS_WEBHOOK_API_KEY = os.environ.get('SHEETS_WEBHOOK_API_KEY')
+# # Google Sheets webhook (App Script -> Django) is historical and no longer active
+# SHEETS_WEBHOOK_API_KEY = os.environ.get('SHEETS_WEBHOOK_API_KEY')
 
 try:
     from .local_settings import *

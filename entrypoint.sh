@@ -14,15 +14,6 @@ if [ -z "$SECRET_KEY" ]; then
     fi
 fi
 
-# FIXME: One-off rename of the legacy garden app's tables/records to app.
-# Remove these lines once they have run on the VPS and no garden_* tables remain.
-if python manage.py migrate_garden_to_app --dry-run; then
-    python manage.py migrate_garden_to_app
-else
-    echo 'ERROR: migrate_garden_to_app --dry-run failed; aborting.' >&2
-    exit 1
-fi
-
 # Run database migrations
 python manage.py migrate --noinput
 

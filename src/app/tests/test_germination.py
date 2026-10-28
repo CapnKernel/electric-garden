@@ -2,6 +2,7 @@
 
 import pytest
 from django.urls import reverse
+from django.utils import timezone
 from pytest_django.asserts import assertContains, assertNotContains
 
 from app.models import Container, Packet, Plant, Planting, PlantingEvent
@@ -56,17 +57,12 @@ class TestContainerPlantings:
         assert _container_plantings(container) == []
         assert _container_plantings(other) == [planting]
 
-    def test_transplant_wins_tie_with_germination_on_same_date(self, container, planting):
+    def test_transplant_wins_tie_with_planted_on_same_date(self, container, planting):
         from app.planting import _container_plantings
 
         other = Container.objects.create(id=2, name='Other')
         # Same date: the transplant should be treated as the more recent event.
-        PlantingEvent.objects.create(
-            planting=planting,
-            event_type=PlantingEvent.EventType.GERMINATED,
-            date='2026-02-01',
-            planted_in=container,
-        )
+        PlantingEvent.objects.filter(planting=planting).update(date='2026-02-01')
         PlantingEvent.objects.create(
             planting=planting,
             event_type=PlantingEvent.EventType.TRANSPLANTED,
@@ -104,6 +100,22 @@ class TestContainerGerminationView:
         assertContains(response, container.name)
         assertNotContains(response, 'Scan barcode')
 
+    def test_get_shows_location_from_planted_event(self, authed_client, container, planting):
+        url = reverse('app:container_germination', args=[container.pk])
+        PlantingEvent.objects.filter(planting=planting).update(location='Front garden parsley box')
+        # A germinated event carries no location details, so it must not hide
+        # the location recorded on the planted event.
+        PlantingEvent.objects.create(
+            planting=planting,
+            event_type=PlantingEvent.EventType.GERMINATED,
+            date='2026-02-01',
+        )
+
+        response = authed_client.get(url)
+
+        assertContains(response, 'Front garden parsley box')
+        assertContains(response, f'href="{container.scan_url}"')
+
     def test_post_sets_germination_and_creates_event(self, authed_client, container, planting):
         response = authed_client.post(
             reverse('app:container_germination', args=[container.pk]),
@@ -118,7 +130,8 @@ class TestContainerGerminationView:
         planting.refresh_from_db()
         assert planting.germinated == 3
         event = planting.events.get(event_type=PlantingEvent.EventType.GERMINATED)
-        assert event.planted_in == container
+        assert event.planted_in is None
+        assert event.location is None
 
     def test_post_via_htmx_redirects_to_scan_page(self, authed_client, container, planting):
         response = authed_client.post(
@@ -141,7 +154,6 @@ class TestContainerGerminationView:
             planting=planting,
             event_type=PlantingEvent.EventType.GERMINATED,
             date='2026-02-01',
-            planted_in=container,
         )
 
         authed_client.post(
@@ -158,7 +170,6 @@ class TestContainerGerminationView:
             planting=planting,
             event_type=PlantingEvent.EventType.GERMINATED,
             date='2026-02-01',
-            planted_in=container,
         )
 
         authed_client.post(
@@ -172,7 +183,7 @@ class TestContainerGerminationView:
 
         assert planting.events.filter(event_type=PlantingEvent.EventType.GERMINATED).count() == 1
         event.refresh_from_db()
-        assert event.planted_in == container
+        assert event.date == timezone.localdate()
 
     def test_post_germinated_without_score_is_invalid(self, authed_client, container, planting):
         response = authed_client.post(
