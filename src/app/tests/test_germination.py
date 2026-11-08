@@ -92,6 +92,11 @@ class TestContainerGerminationView:
         assertContains(response, 'Germination')
         assertContains(response, planting.barcode)
 
+    def test_get_admin_link_targets_the_container(self, authed_client, container, planting):
+        response = authed_client.get(reverse('app:container_germination', args=[container.pk]))
+
+        assertContains(response, f'href="{reverse("admin:app_container_change", args=[container.pk])}"')
+
     def test_get_is_full_page_titled_with_container_name(self, authed_client, container, planting):
         response = authed_client.get(reverse('app:container_germination', args=[container.pk]))
 

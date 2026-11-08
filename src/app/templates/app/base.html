@@ -83,7 +83,7 @@
                                 </li>
                                 <li class="nav-item">
                                     <a class="nav-link"
-                                       href="{% block item-admin-link %}{% url 'admin:index' %}{% endblock item-admin-link %}">Admin</a>
+                                       href="{% block item-admin-link %}{% if obj %}{{ obj.admin_url }}{% else %}{% url 'admin:index' %}{% endif %}{% endblock item-admin-link %}">Admin</a>
                                 </li>
                             </ul>
                         {% endblock nav %}

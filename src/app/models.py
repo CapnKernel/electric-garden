@@ -89,6 +89,13 @@ class BarcodedBase(models.Model):
         return reverse('app:scan', query={'q': self.barcode})
 
     @property
+    def admin_url(self):
+        """URL of this object's admin change page."""
+
+        meta = self._meta
+        return reverse(f'admin:{meta.app_label}_{meta.model_name}_change', args=[self.pk])
+
+    @property
     def detail_url(self):
         """URL of this object's detail page (the canonical public URL)."""
         return reverse(f'app:{self.detail_url_name}', kwargs={'pk': self.pk})

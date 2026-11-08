@@ -352,6 +352,9 @@ class TestGetAbsoluteUrl:
     def test_detail_url_differs_from_scan_url(self, plant):
         assert plant.detail_url != plant.scan_url
 
+    def test_admin_url_points_to_admin_change_page(self, plant):
+        assert plant.admin_url == reverse('admin:app_plant_change', args=[plant.pk])
+
 
 class TestDetailViews:
     """Each scannable object has a detail page reachable by primary key."""
@@ -408,6 +411,39 @@ class TestDetailViews:
         response = authed_client.get(reverse('app:plant_detail', kwargs={'pk': plant.pk}))
 
         assertContains(response, '<!DOCTYPE html>')
+
+    @pytest.mark.parametrize(
+        'url_name,admin_url_name',
+        [
+            ('app:plant_detail', 'admin:app_plant_change'),
+            ('app:packet_detail', 'admin:app_packet_change'),
+            ('app:planting_detail', 'admin:app_planting_change'),
+            ('app:container_detail', 'admin:app_container_change'),
+        ],
+    )
+    def test_admin_link_targets_the_object(
+        self, authed_client, plant, packet, planting, container, url_name, admin_url_name
+    ):
+        obj = {
+            'app:plant_detail': plant,
+            'app:packet_detail': packet,
+            'app:planting_detail': planting,
+            'app:container_detail': container,
+        }[url_name]
+
+        response = authed_client.get(reverse(url_name, kwargs={'pk': obj.pk}))
+
+        assertContains(response, f'href="{reverse(admin_url_name, args=[obj.pk])}"')
+
+    def test_admin_link_defaults_to_admin_index_without_object(self, authed_client):
+        response = authed_client.get(reverse('app:scan'))
+
+        assertContains(response, f'href="{reverse("admin:index")}"')
+
+    def test_planting_edit_admin_link_targets_the_planting(self, authed_client, planting):
+        response = authed_client.get(reverse('app:planting_edit', kwargs={'pk': planting.pk}))
+
+        assertContains(response, f'href="{reverse("admin:app_planting_change", args=[planting.pk])}"')
 
     @pytest.mark.parametrize(
         'url_name,model',
