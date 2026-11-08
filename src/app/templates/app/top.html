@@ -32,30 +32,42 @@
          hx-get="{% url 'app:dash_stats' %}"
          hx-trigger="load">
         {% partialdef dash-stats-cards %}
-            <div class="col-md-4">
-                <div class="card text-center inventory-card">
+            <a class="col-md-3 text-decoration-none"
+               href="{% url 'admin:app_plant_changelist' %}">
+                <div class="card text-center inventory-card h-100">
                     <div class="card-body">
                         {% card_title %}Plants{% endcard_title %}
                         <p class="card-text display-6">{{ plant_count }}</p>
                     </div>
                 </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card text-center inventory-card">
+            </a>
+            <a class="col-md-3 text-decoration-none"
+               href="{% url 'admin:app_packet_changelist' %}">
+                <div class="card text-center inventory-card h-100">
                     <div class="card-body">
                         {% card_title %}Packets{% endcard_title %}
                         <p class="card-text display-6">{{ packet_count }}</p>
                     </div>
                 </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card text-center inventory-card">
+            </a>
+            <a class="col-md-3 text-decoration-none"
+               href="{% url 'admin:app_planting_changelist' %}">
+                <div class="card text-center inventory-card h-100">
                     <div class="card-body">
                         {% card_title %}Plantings{% endcard_title %}
                         <p class="card-text display-6">{{ planting_count }}</p>
                     </div>
                 </div>
-            </div>
+            </a>
+            <a class="col-md-3 text-decoration-none"
+               href="{% url 'admin:app_container_changelist' %}">
+                <div class="card text-center inventory-card h-100">
+                    <div class="card-body">
+                        {% card_title %}Containers{% endcard_title %}
+                        <p class="card-text display-6">{{ container_count }}</p>
+                    </div>
+                </div>
+            </a>
         {% endpartialdef dash-stats-cards %}
         {% partial dash-stats-cards %}
     </div>
