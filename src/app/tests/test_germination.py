@@ -95,8 +95,7 @@ class TestContainerGerminationView:
     def test_get_is_full_page_titled_with_container_name(self, authed_client, container, planting):
         response = authed_client.get(reverse('app:container_germination', args=[container.pk]))
 
-        content = response.content.decode()
-        assert '<!DOCTYPE html>' in content
+        assertContains(response, '<!DOCTYPE html>')
         assertContains(response, container.name)
         assertNotContains(response, 'Scan barcode')
 
@@ -203,7 +202,8 @@ class TestContainerGerminationView:
         )
 
         assert response.status_code == 200
-        assertContains(response, 'Choose a germination score')
+        _, form = response.context['rows'][0]
+        assert form.errors['score'] == ['Choose a germination score between 0 and 3.']
         planting.refresh_from_db()
         assert planting.germinated is None
 
@@ -218,6 +218,9 @@ class TestContainerGerminationView:
         )
 
         assert response.status_code == 200
+        _, form = response.context['rows'][0]
+        assert 'score' in form.errors
+        assert form.errors.as_data()['score'][0].code == 'max_value'
         planting.refresh_from_db()
         assert planting.germinated is None
 

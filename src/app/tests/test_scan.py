@@ -115,11 +115,12 @@ class TestScanPage:
         assert response.status_code == 302
         assert response['Location'] == reverse('app:plant_detail', kwargs={'pk': plant.pk})
 
-    def test_unknown_barcode_query_shows_error(self, authed_client, db):
+    def test_unknown_barcode_query_sets_error(self, authed_client, db):
         response = authed_client.get(reverse('app:scan'), {'barcode': 'P=999'})
 
         assert response.status_code == 200
-        assertContains(response, 'No object found')
+        assert response.context['obj'] is None
+        assert response.context['error'] == 'No object found for barcode P=999'
 
 
 class TestScanHxpost:
@@ -154,17 +155,21 @@ class TestScanHxpost:
 
         assert response.headers['HX-Redirect'] == reverse('app:container_detail', kwargs={'pk': container.pk})
 
-    def test_unknown_barcode_shows_error(self, authed_client, db):
+    def test_unknown_barcode_sets_error(self, authed_client, db):
         response = self._scan(authed_client, 'P=999')
 
         assert response.status_code == 200
-        assertContains(response, 'No object found')
+        assert 'HX-Redirect' not in response.headers
+        assert response.context['obj'] is None
+        assert response.context['error'] == 'No object found for barcode P=999'
 
-    def test_malformed_barcode_shows_error(self, authed_client, db):
+    def test_malformed_barcode_sets_error(self, authed_client, db):
         response = self._scan(authed_client, 'garbage')
 
         assert response.status_code == 200
-        assertContains(response, 'No object found')
+        assert 'HX-Redirect' not in response.headers
+        assert response.context['obj'] is None
+        assert response.context['error'] == 'No object found for barcode garbage'
 
     def test_error_redisplay_input(self, authed_client, db):
         response = self._scan(authed_client, 'P=999')

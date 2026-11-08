@@ -62,6 +62,7 @@ Do not offer to run all tests unless asked.
 
 - As far as possible, suggest all changes to one file in one `apply_diff`.
   Do not use multiple `apply_diff`s on the same file for one concern unless unavoidable.  Exception: Writing to `ai-assistance/planting-plan.md`.  For this file, apply differences in discrete chunks.
+- As a guide, unit tests which are testing logic should check the response's content, rather than looking for strings in the rendered HTML.  Unit tests which are testing template functionality should check the response's rendered content, usually with `assertContains`.
 - On the VPS, do _not_ run git commands as root.  Run them as user `user`.
 
 # Project context for AI farming assistants
