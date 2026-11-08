@@ -15,12 +15,12 @@ def plant(db):
 
 @pytest.fixture
 def packet(db, plant):
-    return Packet.objects.create(id=1, plant=plant)
+    return Packet.objects.create(id=101, plant=plant)
 
 
 @pytest.fixture
 def planting(db, packet):
-    planting = Planting.objects.create(id=1, packet=packet)
+    planting = Planting.objects.create(id=1001, packet=packet)
     PlantingEvent.objects.create(planting=planting, event_type=PlantingEvent.EventType.PLANTED, date='2026-01-01')
     return planting
 
@@ -33,8 +33,8 @@ def container(db):
 def test_barcode_is_prefix_plus_padded_id(plant, packet, planting, container):
     # Ids are zero-padded: Plant/Container to 3 digits, Packet to 3, Planting to 4.
     assert plant.barcode == 'P=001'
-    assert packet.barcode == 'P=001'
-    assert planting.barcode == 'P=0001'
+    assert packet.barcode == 'P=101'
+    assert planting.barcode == 'P=1001'
     assert container.barcode == 'PC=001'
 
 
@@ -112,16 +112,28 @@ class TestLabel:
     def test_plant_uses_name(self, plant):
         assert plant.label == 'Dwarf bean'
 
-    def test_packet_uses_plant_name(self, packet):
-        assert packet.label == 'Dwarf bean'
-
-    def test_packet_appends_full_name_after_a_dash(self, packet):
-        packet.full_name = 'Marketmore'
-
-        assert packet.label == 'Dwarf bean - Marketmore'
-
     def test_planting_uses_plant_name(self, planting):
         assert planting.label == 'Dwarf bean'
+
+    def test_packet_label_without_full_name(self, packet):
+        assert packet.label == 'Dwarf bean'
+
+    def test_packet_label_includes_full_name_in_parentheses(self, packet):
+        packet.full_name = 'Marketmore'
+
+        assert packet.label == 'Dwarf bean (Marketmore)'
+
+
+class TestPacketStr:
+    """``str(packet)`` is the barcode and label, e.g. for form selects and admin."""
+
+    def test_without_full_name(self, packet):
+        assert str(packet) == 'P=101: Dwarf bean'
+
+    def test_with_full_name(self, packet):
+        packet.full_name = 'Marketmore'
+
+        assert str(packet) == 'P=101: Dwarf bean (Marketmore)'
 
 
 class TestSinglePlantedEvent:

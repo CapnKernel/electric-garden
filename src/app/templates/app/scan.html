@@ -29,7 +29,7 @@
             {% if obj %}
                 {% with label=obj.label %}
                     <li class="breadcrumb-item">{{ obj.verbose_name|capfirst }}</li>
-                    <li class="breadcrumb-item active" aria-current="page">{{ obj.barcode }}{% if label %} ({{ label }}){% endif %}</li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ obj.barcode }}{% if label %} {{ label }}{% endif %}</li>
                 {% endwith %}
             {% else %}
                 <li class="breadcrumb-item active" aria-current="page">Scan</li>
@@ -257,7 +257,7 @@
                         <tr>
                             <th scope="row">Packet</th>
                             <td>
-                                <a href="{{ obj.packet.detail_url }}">{{ obj.packet.barcode }} ({{ obj.packet.plant.name }})</a>
+                                <a href="{{ obj.packet.detail_url }}">{{ obj.packet.barcode }} {{ obj.packet.label }}</a>
                             </td>
                         </tr>
                         <tr>

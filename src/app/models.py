@@ -228,12 +228,11 @@ class Packet(BarcodedBase):
     def label(self):
         """The packet's plant name, plus its variety (``full_name``) if set."""
         if self.full_name:
-            return f'{self.plant.name} - {self.full_name}'
+            return f'{self.plant.name} ({self.full_name})'
         return self.plant.name
 
     def __str__(self):
-        extra = f' ({self.full_name})' if self.full_name else ''
-        return f'{self.barcode}: {self.plant.name}{extra}'
+        return f'{self.barcode}: {self.label}'
 
 
 class Planting(BarcodedBase):

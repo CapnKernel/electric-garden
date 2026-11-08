@@ -100,6 +100,14 @@ class TestContainerGerminationView:
         assertContains(response, container.name)
         assertNotContains(response, 'Scan barcode')
 
+    def test_get_shows_packet_full_name(self, authed_client, container, planting):
+        planting.packet.full_name = 'Marketmore'
+        planting.packet.save(update_fields=['full_name'])
+
+        response = authed_client.get(reverse('app:container_germination', args=[container.pk]))
+
+        assertContains(response, 'Dwarf bean (Marketmore)')
+
     def test_get_shows_location_from_planted_event(self, authed_client, container, planting):
         url = reverse('app:container_germination', args=[container.pk])
         PlantingEvent.objects.filter(planting=planting).update(location='Front garden parsley box')

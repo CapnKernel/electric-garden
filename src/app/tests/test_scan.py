@@ -373,7 +373,24 @@ class TestDetailViews:
         response = authed_client.get(container.detail_url)
 
         assertContains(response, '<li class="breadcrumb-item">Container</li>', html=True)
-        assertContains(response, f'{container.barcode} (Blue ribbon 1)')
+        assertContains(response, f'{container.barcode} Blue ribbon 1')
+
+    def test_packet_breadcrumb_shows_full_name(self, authed_client, packet):
+        packet.full_name = 'Marketmore'
+        packet.save(update_fields=['full_name'])
+
+        response = authed_client.get(packet.detail_url)
+
+        assertContains(response, '<li class="breadcrumb-item">Packet</li>', html=True)
+        assertContains(response, 'P=101 Dwarf bean (Marketmore)')
+
+    def test_planting_detail_shows_packet_full_name(self, authed_client, packet, planting):
+        packet.full_name = 'Marketmore'
+        packet.save(update_fields=['full_name'])
+
+        response = authed_client.get(planting.detail_url)
+
+        assertContains(response, 'P=101 Dwarf bean (Marketmore)')
 
     def test_packet_detail(self, authed_client, packet):
         response = authed_client.get(reverse('app:packet_detail', kwargs={'pk': packet.pk}))
