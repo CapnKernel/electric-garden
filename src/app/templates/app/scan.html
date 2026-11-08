@@ -18,6 +18,22 @@
 {% endblock nav %}
 
 {% block barcode_form %}
+    <form class="d-flex me-3"
+          method="get"
+          action="{% url 'app:scan' %}"
+          hx-post="{% url 'app:scan_hxpost' %}"
+          hx-target="#scan-result"
+          hx-swap="outerHTML"
+          hx-on::after-swap="document.getElementById('navbar-barcode').focus()">
+        <input class="form-control me-2"
+               type="text"
+               id="navbar-barcode"
+               name="barcode"
+               placeholder="Scan barcode..."
+               aria-label="Scan barcode"
+               autocomplete="off"
+               autofocus>
+    </form>
 {% endblock barcode_form %}
 
 {% block breadcrumbs %}
@@ -97,22 +113,6 @@
                 {% endif %}
             {% endif %}
 
-            <form hx-post="{% url 'app:scan_hxpost' %}"
-                  hx-target="#scan-result"
-                  hx-swap="outerHTML"
-                  hx-on::after-swap="document.getElementById('barcode').focus()">
-                {% csrf_token %}
-                <div class="input-group">
-                    <input type="text"
-                           id="barcode"
-                           name="barcode"
-                           class="form-control"
-                           placeholder="Scan or enter a barcode..."
-                           autofocus
-                           autocomplete="off">
-                    <button type="submit" class="btn btn-primary">Submit</button>
-                </div>
-            </form>
         </div>
     {% endpartialdef scan-result %}
 

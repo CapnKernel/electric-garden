@@ -64,58 +64,60 @@
         <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
             <div class="container">
                 <a class="navbar-brand" href="{% url 'app:top' %}">Electric Garden</a>
-                <button class="navbar-toggler"
-                        type="button"
-                        data-bs-toggle="collapse"
-                        data-bs-target="#navbarNav">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse" id="navbarNav">
-                    {% block nav %}
-                        {% nav text ' active' %}
-                        <ul class="navbar-nav me-auto">
-                            <li class="nav-item">
-                                <a class="nav-link{{ nav.dash }}" href='{% url "app:top" %}'>Dashboard</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link{{ nav.scan }}" href="{% url 'app:scan' %}">Scan</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link"
-                                   href="{% block item-admin-link %}{% url 'admin:index' %}{% endblock item-admin-link %}">Admin</a>
-                            </li>
+                {% block navbar %}
+                    <button class="navbar-toggler"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#navbarNav">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="collapse navbar-collapse" id="navbarNav">
+                        {% block nav %}
+                            {% nav text ' active' %}
+                            <ul class="navbar-nav me-auto">
+                                <li class="nav-item">
+                                    <a class="nav-link{{ nav.dash }}" href='{% url "app:top" %}'>Dashboard</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link{{ nav.scan }}" href="{% url 'app:scan' %}">Scan</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link"
+                                       href="{% block item-admin-link %}{% url 'admin:index' %}{% endblock item-admin-link %}">Admin</a>
+                                </li>
+                            </ul>
+                        {% endblock nav %}
+                        {% block barcode_form %}
+                            <form class="d-flex me-3" method="get" action="{% url 'app:scan' %}">
+                                <input class="form-control me-2"
+                                       type="text"
+                                       id="navbar-barcode"
+                                       name="barcode"
+                                       placeholder="Scan barcode..."
+                                       value="{{ barcode_value }}"
+                                       aria-label="Scan barcode"
+                                       autocomplete="off">
+                            </form>
+                        {% endblock barcode_form %}
+                        <ul class="navbar-nav">
+                            {% if user.is_authenticated %}
+                                <li class="nav-item">
+                                    <span class="navbar-text me-3">Welcome, {{ user.preferred_name|default:user.email }}</span>
+                                </li>
+                                <li class="nav-item">
+                                    <form method="post" action="{% url 'logout' %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-outline-light btn-sm">Logout</button>
+                                    </form>
+                                </li>
+                            {% else %}
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{% url 'login' %}">Login</a>
+                                </li>
+                            {% endif %}
                         </ul>
-                    {% endblock nav %}
-                    {% block barcode_form %}
-                        <form class="d-flex me-3" method="get" action="{% url 'app:scan' %}">
-                            <input class="form-control me-2"
-                                   type="text"
-                                   id="navbar-barcode"
-                                   name="barcode"
-                                   placeholder="Scan barcode..."
-                                   value="{{ barcode_value }}"
-                                   aria-label="Scan barcode"
-                                   autocomplete="off">
-                        </form>
-                    {% endblock barcode_form %}
-                    <ul class="navbar-nav">
-                        {% if user.is_authenticated %}
-                            <li class="nav-item">
-                                <span class="navbar-text me-3">Welcome, {{ user.preferred_name|default:user.email }}</span>
-                            </li>
-                            <li class="nav-item">
-                                <form method="post" action="{% url 'logout' %}" class="d-inline">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-outline-light btn-sm">Logout</button>
-                                </form>
-                            </li>
-                        {% else %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'login' %}">Login</a>
-                            </li>
-                        {% endif %}
-                    </ul>
-                </div>
+                    </div>
+                {% endblock navbar %}
             </div>
         </nav>
 
