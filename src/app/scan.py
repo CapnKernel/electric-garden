@@ -1,12 +1,14 @@
 """Barcode scanning views for the garden app.
 
 Barcodes are strings of the form ``P=<int>`` (for plants, packets or
-plantings) or ``PC=<int>`` (for containers).  Scanning looks up and displays
-information, and records the scan time on the object via ``mark_scanned()``.
+plantings) or ``PC=<int>`` (for containers).  A scan records the scan time on
+the object via ``mark_scanned()`` and then redirects to that object's detail
+page, so the browser URL always names the object being viewed.
 """
 
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
+from django_htmx.http import HttpResponseClientRedirect
 
 from .models import Container, Packet, Plant, Planting
 
@@ -60,29 +62,40 @@ def render_scan_result(request, obj):
 
 
 @require_GET
+def render_detail(request, model, pk):
+    """Render the full page for ``model`` instance ``pk`` without recording a scan.
+
+    This backs the per-object detail URLs in ``urls.py`` (see
+    ``BarcodedBase.detail_url``), so simply viewing an object does not change
+    its ``last_scanned_at``.
+    """
+    obj = get_object_or_404(model, pk=pk)
+    return render(request, 'app/scan.html', {'barcode': obj.barcode, 'obj': obj, 'error': None})
+
+
+@require_GET
 def scan_page(request):
     """Full page presenting a prefocused barcode input.
 
-    The input posts to :func:`scan_hxpost` via htmx; the returned fragment
-    replaces the ``scan-result`` region and re-renders the input ready for
-    the next scan.
+    Without a barcode it renders an empty input, which posts to
+    :func:`scan_hxpost` via htmx.
 
-    If a ``barcode`` query parameter is supplied (e.g.
-    ``/scan/?barcode=P%3D1111``), the result is shown immediately as
-    if that barcode had just been scanned.
+    With a ``barcode`` query parameter (e.g. ``/scan/?barcode=P%3D1111``) the
+    barcode is scanned and the browser is redirected to the object's detail
+    page, so the address bar names the object rather than the scan endpoint.
+    An unknown barcode renders this page with an error instead.
     """
     barcode = request.GET.get('barcode', '').strip()
-    obj = None
     error = None
     if barcode:
         try:
-            obj = scan_and_mark(barcode)
+            return redirect(scan_and_mark(barcode).detail_url)
         except BarcodeNotFound as exc:
             error = str(exc)
 
     context = {
         'barcode': barcode,
-        'obj': obj,
+        'obj': None,
         'error': error,
     }
     return render(request, 'app/scan.html', context)
@@ -90,22 +103,25 @@ def scan_page(request):
 
 @require_POST
 def scan_hxpost(request):
-    """Handle a scanned barcode and return the ``scan-result`` fragment.
+    """Handle a scanned barcode from the htmx input.
 
-    Displays information about the scanned object (or an error), then
-    re-renders the input field ready for the next barcode.
+    On success the object is looked up and marked as scanned, and htmx is told
+    to navigate to its detail page (see :func:`render_detail`) so the URL
+    matches the object shown.  An unknown barcode returns the ``scan-result``
+    fragment with an error, leaving the input in place for the next scan.
     """
     barcode = request.POST.get('barcode', '').strip()
-    obj = None
     error = None
     try:
         obj = scan_and_mark(barcode)
     except BarcodeNotFound as exc:
         error = str(exc)
+    else:
+        return HttpResponseClientRedirect(obj.detail_url)
 
     context = {
         'barcode': barcode,
-        'obj': obj,
+        'obj': None,
         'error': error,
     }
     return render(request, 'app/scan.html#scan-result', context)

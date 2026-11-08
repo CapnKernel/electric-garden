@@ -3,7 +3,6 @@
 from django.contrib import messages
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 from django_htmx.http import HttpResponseClientRedirect
@@ -27,7 +26,7 @@ def planting_edit(request, pk):
             planting = form.save()
             if changed:
                 planting.mark_scanned()
-            return redirect(f'{reverse("app:scan")}?barcode={planting.barcode}')
+            return redirect(planting.detail_url)
     else:
         form = PlantingForm(instance=planting)
 
@@ -153,7 +152,7 @@ def container_germination(request, pk):
             except Exception as exc:  # noqa: BLE001 - surface any save failure to the user
                 messages.error(request, f'Could not save germination: {exc}')
             else:
-                return _scan_redirect(request, container)
+                return _detail_redirect(request, container)
 
         rows = list(zip(plantings, forms))
         return render(
@@ -167,12 +166,11 @@ def container_germination(request, pk):
     return render(request, 'app/container_germination.html', {'container': container, 'rows': rows})
 
 
-def _scan_redirect(request, container):
-    """Redirect to the container's scan page, honouring htmx and plain requests."""
-    scan_url = f'{reverse("app:scan")}?barcode={container.barcode}'
+def _detail_redirect(request, obj):
+    """Redirect to ``obj``'s detail page, honouring htmx and plain requests."""
     if request.htmx:
-        return HttpResponseClientRedirect(scan_url)
-    return redirect(scan_url)
+        return HttpResponseClientRedirect(obj.detail_url)
+    return redirect(obj.detail_url)
 
 
 def _save_germination(container, plantings, forms):

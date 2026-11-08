@@ -6,7 +6,6 @@ from pytest_django.asserts import assertContains, assertNotContains
 
 from app.models import Container, Packet, Plant, Planting, PlantingEvent
 from app.scan import BarcodeNotFound, lookup_barcode, scan_and_mark
-from app.templatetags.garden_tags import friendly_date
 
 
 @pytest.fixture
@@ -105,99 +104,76 @@ class TestScanPage:
 
         assertContains(response, reverse('app:scan_hxpost'))
 
+    def test_breadcrumb_is_scan(self, authed_client):
+        response = authed_client.get(reverse('app:scan'))
+
+        assertContains(response, '<li class="breadcrumb-item active" aria-current="page">Scan</li>', html=True)
+
+    def test_barcode_query_redirects_to_detail_page(self, authed_client, plant):
+        response = authed_client.get(reverse('app:scan'), {'barcode': plant.barcode})
+
+        assert response.status_code == 302
+        assert response['Location'] == reverse('app:plant_detail', kwargs={'pk': plant.pk})
+
+    def test_unknown_barcode_query_shows_error(self, authed_client, db):
+        response = authed_client.get(reverse('app:scan'), {'barcode': 'P=999'})
+
+        assert response.status_code == 200
+        assertContains(response, 'No object found')
+
 
 class TestScanHxpost:
-    """Tests for the htmx scan handler."""
+    """Tests for the htmx scan handler.
 
-    def test_shows_plant_info(self, authed_client, plant):
-        response = authed_client.post(
-            reverse('app:scan_hxpost'),
-            {'barcode': 'P=1'},
-            HTTP_HX_REQUEST='true',
-        )
+    A successful scan navigates to the object's detail page, so the browser URL
+    names the object rather than the scan endpoint.
+    """
 
-        assert response.status_code == 200
-        assertContains(response, 'Dwarf bean')
-        assertContains(response, 'P=001')
+    @staticmethod
+    def _scan(client, barcode):
+        return client.post(reverse('app:scan_hxpost'), {'barcode': barcode}, HTTP_HX_REQUEST='true')
 
-    def test_shows_packet_info(self, authed_client, packet):
-        response = authed_client.post(
-            reverse('app:scan_hxpost'),
-            {'barcode': 'P=101'},
-            HTTP_HX_REQUEST='true',
-        )
+    def test_redirects_to_plant_detail(self, authed_client, plant):
+        response = self._scan(authed_client, 'P=1')
 
         assert response.status_code == 200
-        assertContains(response, 'Dwarf bean')
-        assertContains(response, 'Mr Fothergill&#x27;s')
+        assert response.headers['HX-Redirect'] == reverse('app:plant_detail', kwargs={'pk': plant.pk})
 
-    def test_shows_planting_info(self, authed_client, planting):
-        response = authed_client.post(
-            reverse('app:scan_hxpost'),
-            {'barcode': 'P=1001'},
-            HTTP_HX_REQUEST='true',
-        )
+    def test_redirects_to_packet_detail(self, authed_client, packet):
+        response = self._scan(authed_client, 'P=101')
 
-        assert response.status_code == 200
-        assertContains(response, 'Planted')
-        assertContains(response, friendly_date(planting.events.first().date))
+        assert response.headers['HX-Redirect'] == reverse('app:packet_detail', kwargs={'pk': packet.pk})
 
-    def test_shows_container_info(self, authed_client, container):
-        response = authed_client.post(
-            reverse('app:scan_hxpost'),
-            {'barcode': 'PC=1'},
-            HTTP_HX_REQUEST='true',
-        )
+    def test_redirects_to_planting_detail(self, authed_client, planting):
+        response = self._scan(authed_client, 'P=1001')
 
-        assert response.status_code == 200
-        assertContains(response, 'Blue ribbon 1')
+        assert response.headers['HX-Redirect'] == reverse('app:planting_detail', kwargs={'pk': planting.pk})
+
+    def test_redirects_to_container_detail(self, authed_client, container):
+        response = self._scan(authed_client, 'PC=1')
+
+        assert response.headers['HX-Redirect'] == reverse('app:container_detail', kwargs={'pk': container.pk})
 
     def test_unknown_barcode_shows_error(self, authed_client, db):
-        response = authed_client.post(
-            reverse('app:scan_hxpost'),
-            {'barcode': 'P=999'},
-            HTTP_HX_REQUEST='true',
-        )
+        response = self._scan(authed_client, 'P=999')
 
         assert response.status_code == 200
         assertContains(response, 'No object found')
 
     def test_malformed_barcode_shows_error(self, authed_client, db):
-        response = authed_client.post(
-            reverse('app:scan_hxpost'),
-            {'barcode': 'garbage'},
-            HTTP_HX_REQUEST='true',
-        )
+        response = self._scan(authed_client, 'garbage')
 
         assert response.status_code == 200
         assertContains(response, 'No object found')
 
-    def test_redisplay_input_after_scan(self, authed_client, plant):
-        response = authed_client.post(
-            reverse('app:scan_hxpost'),
-            {'barcode': 'P=1'},
-            HTTP_HX_REQUEST='true',
-        )
+    def test_error_redisplay_input(self, authed_client, db):
+        response = self._scan(authed_client, 'P=999')
 
         assertContains(response, 'name="barcode"')
         assertContains(response, 'autofocus')
 
-    def test_redisplay_input_after_error(self, authed_client, db):
-        response = authed_client.post(
-            reverse('app:scan_hxpost'),
-            {'barcode': 'P=999'},
-            HTTP_HX_REQUEST='true',
-        )
-
-        assertContains(response, 'name="barcode"')
-        assertContains(response, 'autofocus')
-
-    def test_is_fragment_only(self, authed_client, plant):
-        response = authed_client.post(
-            reverse('app:scan_hxpost'),
-            {'barcode': 'P=1'},
-            HTTP_HX_REQUEST='true',
-        )
+    def test_error_response_is_fragment_only(self, authed_client, db):
+        response = self._scan(authed_client, 'P=999')
 
         content = response.content.decode()
         assert '<!DOCTYPE html>' not in content
@@ -209,14 +185,9 @@ class TestScanHxpost:
 
         assert response.status_code == 405
 
-    def test_does_not_modify_data(self, authed_client, plant):
-        authed_client.post(
-            reverse('app:scan_hxpost'),
-            {'barcode': 'P=1'},
-            HTTP_HX_REQUEST='true',
-        )
+    def test_does_not_create_objects(self, authed_client, plant):
+        self._scan(authed_client, 'P=1')
 
-        plant.refresh_from_db()
         assert Plant.objects.count() == 1
 
 
@@ -298,11 +269,7 @@ class TestContainerContentsRows:
             date='2026-01-10',
         )
 
-        response = authed_client.post(
-            reverse('app:scan_hxpost'),
-            {'barcode': container.barcode},
-            HTTP_HX_REQUEST='true',
-        )
+        response = authed_client.get(container.detail_url)
 
         assertContains(response, 'Planted')
         assertContains(response, 'Germinated')
@@ -361,28 +328,103 @@ class TestContainerDisplayExcludesMovedItems:
         packet.container = destination
         packet.save(update_fields=['container'])
 
-        former = authed_client.post(
-            reverse('app:scan_hxpost'),
-            {'barcode': container.barcode},
-            HTTP_HX_REQUEST='true',
-        )
+        former = authed_client.get(container.detail_url)
 
         assertNotContains(former, planting.barcode)
         assertNotContains(former, packet.barcode)
         assertContains(former, 'This container is empty.')
 
-        moved_to = authed_client.post(
-            reverse('app:scan_hxpost'),
-            {'barcode': destination.barcode},
-            HTTP_HX_REQUEST='true',
-        )
+        moved_to = authed_client.get(destination.detail_url)
 
         assertContains(moved_to, planting.barcode)
         assertContains(moved_to, packet.barcode)
 
 
 class TestGetAbsoluteUrl:
-    """The canonical model URL is the scan URL."""
+    """The canonical model URL is the object's detail page."""
 
-    def test_matches_scan_url(self, plant):
-        assert plant.get_absolute_url() == plant.scan_url
+    def test_plant_detail(self, plant):
+        assert plant.get_absolute_url() == reverse('app:plant_detail', kwargs={'pk': plant.pk})
+
+    def test_packet_detail(self, packet):
+        assert packet.get_absolute_url() == reverse('app:packet_detail', kwargs={'pk': packet.pk})
+
+    def test_planting_detail(self, planting):
+        assert planting.get_absolute_url() == reverse('app:planting_detail', kwargs={'pk': planting.pk})
+
+    def test_container_detail(self, container):
+        assert container.get_absolute_url() == reverse('app:container_detail', kwargs={'pk': container.pk})
+
+    def test_detail_url_differs_from_scan_url(self, plant):
+        assert plant.detail_url != plant.scan_url
+
+
+class TestDetailViews:
+    """Each scannable object has a detail page reachable by primary key."""
+
+    def test_plant_detail(self, authed_client, plant):
+        response = authed_client.get(reverse('app:plant_detail', kwargs={'pk': plant.pk}))
+
+        assert response.status_code == 200
+        assertContains(response, 'Dwarf bean')
+        assertContains(response, plant.barcode)
+
+    def test_breadcrumbs_name_the_object(self, authed_client, container):
+        response = authed_client.get(container.detail_url)
+
+        assertContains(response, '<li class="breadcrumb-item">Container</li>', html=True)
+        assertContains(response, f'{container.barcode} (Blue ribbon 1)')
+
+    def test_packet_detail(self, authed_client, packet):
+        response = authed_client.get(reverse('app:packet_detail', kwargs={'pk': packet.pk}))
+
+        assert response.status_code == 200
+        assertContains(response, 'Mr Fothergill&#x27;s')
+
+    def test_planting_detail(self, authed_client, planting):
+        response = authed_client.get(reverse('app:planting_detail', kwargs={'pk': planting.pk}))
+
+        assert response.status_code == 200
+        assertContains(response, planting.barcode)
+
+    def test_container_detail(self, authed_client, container):
+        response = authed_client.get(reverse('app:container_detail', kwargs={'pk': container.pk}))
+
+        assert response.status_code == 200
+        assertContains(response, 'Blue ribbon 1')
+
+    def test_is_full_page(self, authed_client, plant):
+        response = authed_client.get(reverse('app:plant_detail', kwargs={'pk': plant.pk}))
+
+        assertContains(response, '<!DOCTYPE html>')
+
+    @pytest.mark.parametrize(
+        'url_name,model',
+        [
+            ('app:plant_detail', Plant),
+            ('app:packet_detail', Packet),
+            ('app:planting_detail', Planting),
+            ('app:container_detail', Container),
+        ],
+    )
+    def test_unknown_pk_returns_404(self, authed_client, db, url_name, model):
+        response = authed_client.get(reverse(url_name, kwargs={'pk': 999}))
+
+        assert response.status_code == 404
+
+    @pytest.mark.parametrize(
+        'url_name',
+        ['app:plant_detail', 'app:packet_detail', 'app:planting_detail', 'app:container_detail'],
+    )
+    def test_does_not_mark_scanned(self, authed_client, plant, packet, planting, container, url_name):
+        obj = {
+            'app:plant_detail': plant,
+            'app:packet_detail': packet,
+            'app:planting_detail': planting,
+            'app:container_detail': container,
+        }[url_name]
+
+        authed_client.get(reverse(url_name, kwargs={'pk': obj.pk}))
+
+        obj.refresh_from_db()
+        assert obj.last_scanned_at is None

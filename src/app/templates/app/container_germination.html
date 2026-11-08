@@ -73,7 +73,7 @@
                                         {% for planting, form in rows %}
                                             <tr x-data="{ germinated: {{ form.germinated.value|yesno:'true,false' }}, score: {{ form.score.value|default:'null' }} }">
                                                 <td>
-                                                    <a href="{{ planting.scan_url }}">{{ planting.barcode }}</a>
+                                                    <a href="{{ planting.detail_url }}">{{ planting.barcode }}</a>
                                                     {{ form.planting_id }}
                                                     {{ form.score }}
                                                 </td>
@@ -81,7 +81,7 @@
                                                 <td>
                                                     {% with event=planting.location_event %}
                                                         {% if event.planted_in %}
-                                                            <a href="{{ event.planted_in.scan_url }}">{{ event.planted_in.name }}</a>
+                                                            <a href="{{ event.planted_in.detail_url }}">{{ event.planted_in.name }}</a>
                                                         {% endif %}
                                                         {% if event.location %}
                                                             {% if event.planted_in %}·{% endif %}
@@ -120,7 +120,7 @@
                                 </table>
                             </div>
                             <button type="submit" class="btn btn-primary btn-sm">Save</button>
-                            <a href="{{ container.scan_url }}" class="btn btn-secondary btn-sm">Cancel</a>
+                            <a href="{{ container.detail_url }}" class="btn btn-secondary btn-sm">Cancel</a>
                         </form>
                     {% else %}
                         <p class="text-muted">No plantings in this container.</p>

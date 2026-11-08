@@ -51,7 +51,7 @@
                     </div>
                 {% endfor %}
                 <button type="submit" class="btn btn-primary">Save</button>
-                <a href="{% url 'app:scan' %}?barcode={{ planting.barcode }}" class="btn btn-secondary">Cancel</a>
+                <a href="{{ planting.detail_url }}" class="btn btn-secondary">Cancel</a>
             </form>
         </div>
     </div>
@@ -79,7 +79,7 @@
                                 <td>{{ event.date|friendly_date }}</td>
                                 <td>
                                     {% if event.planted_in %}
-                                        <a href="{{ event.planted_in.scan_url }}">{{ event.planted_in.name }} ({{ event.planted_in.barcode }})</a>
+                                        <a href="{{ event.planted_in.detail_url }}">{{ event.planted_in.name }} ({{ event.planted_in.barcode }})</a>
                                     {% else %}
                                         <span class="text-muted">-</span>
                                     {% endif %}

@@ -5,7 +5,11 @@
 {% load app_tags %}
 
 {% block title %}
-    Scan barcode
+    {% if obj %}
+        {{ obj }}
+    {% else %}
+        Scan barcode
+    {% endif %}
 {% endblock title %}
 
 {% block nav %}
@@ -22,13 +26,24 @@
             <li class="breadcrumb-item">
                 <a href="{% url 'app:top' %}">Dashboard</a>
             </li>
-            <li class="breadcrumb-item active">Scan</li>
+            {% if obj %}
+                {% with label=obj.label %}
+                    <li class="breadcrumb-item">{{ obj.verbose_name|capfirst }}</li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ obj.barcode }}{% if label %} ({{ label }}){% endif %}</li>
+                {% endwith %}
+            {% else %}
+                <li class="breadcrumb-item active" aria-current="page">Scan</li>
+            {% endif %}
         </ol>
     </nav>
 {% endblock breadcrumbs %}
 
 {% block h1 %}
-    Scan barcode
+    {% if obj %}
+        {{ obj }}
+    {% else %}
+        Scan barcode
+    {% endif %}
 {% endblock h1 %}
 
 {% block body %}
@@ -134,14 +149,14 @@
         <tr>
             <th scope="row">Plant</th>
             <td>
-                <a href="{{ obj.plant.scan_url }}">{{ obj.plant.name }}</a>
+                <a href="{{ obj.plant.detail_url }}">{{ obj.plant.name }}</a>
             </td>
         </tr>
         {% if obj.container %}
             <tr>
                 <th scope="row">Container</th>
                 <td>
-                    <a href="{{ obj.container.scan_url }}">{{ obj.container.name }}</a>
+                    <a href="{{ obj.container.detail_url }}">{{ obj.container.name }}</a>
                 </td>
             </tr>
         {% endif %}
@@ -202,7 +217,7 @@
                                     {% for planting in plantings %}
                                         <tr>
                                             <td>
-                                                <a href="{{ planting.scan_url }}">{{ planting.barcode }}</a>
+                                                <a href="{{ planting.detail_url }}">{{ planting.barcode }}</a>
                                             </td>
                                             <td>{{ planting.first_event_date|friendly_date|default:"-" }}</td>
                                             <td>{{ planting.germinated|default:"-" }}</td>
@@ -236,13 +251,13 @@
                         <tr>
                             <th scope="row">Plant</th>
                             <td>
-                                <a href="{{ obj.packet.plant.scan_url }}">{{ obj.packet.plant.name }}</a>
+                                <a href="{{ obj.packet.plant.detail_url }}">{{ obj.packet.plant.name }}</a>
                             </td>
                         </tr>
                         <tr>
                             <th scope="row">Packet</th>
                             <td>
-                                <a href="{{ obj.packet.scan_url }}">{{ obj.packet.barcode }} ({{ obj.packet.plant.name }})</a>
+                                <a href="{{ obj.packet.detail_url }}">{{ obj.packet.barcode }} ({{ obj.packet.plant.name }})</a>
                             </td>
                         </tr>
                         <tr>
@@ -278,7 +293,7 @@
                                     <td>{{ event.date|friendly_date }}</td>
                                     <td>
                                         {% if event.planted_in %}
-                                            <a href="{{ event.planted_in.scan_url }}">{{ event.planted_in.name }} ({{ event.planted_in.barcode }})</a>
+                                            <a href="{{ event.planted_in.detail_url }}">{{ event.planted_in.name }} ({{ event.planted_in.barcode }})</a>
                                         {% else %}
                                             <span class="text-muted">-</span>
                                         {% endif %}
@@ -350,13 +365,13 @@
                                                 {% if first.verbose_name == 'planting event' %}
                                                     {% with planting=first.planting %}
                                                         <td>
-                                                            <a href="{{ planting.scan_url }}">{{ planting.barcode }}</a>
+                                                            <a href="{{ planting.detail_url }}">{{ planting.barcode }}</a>
                                                         </td>
                                                         <td>
-                                                            <a href="{{ planting.packet.plant.scan_url }}">{{ planting.packet.plant.name }}</a>
+                                                            <a href="{{ planting.packet.plant.detail_url }}">{{ planting.packet.plant.name }}</a>
                                                         </td>
                                                         <td>
-                                                            <a href="{{ planting.packet.scan_url }}">{{ planting.packet.barcode }}</a>
+                                                            <a href="{{ planting.packet.detail_url }}">{{ planting.packet.barcode }}</a>
                                                         </td>
                                                         <td>{{ planting.packet.brand|default:"" }}</td>
                                                         <td>{{ planting.packet.full_name|default:"" }}</td>
@@ -374,7 +389,7 @@
                                                                     <span class="badge bg-secondary">{{ event.get_event_type_display }}</span>
                                                                     {{ event.date|friendly_date }}
                                                                     {% if event.planted_in %}
-                                                                        · <a href="{{ event.planted_in.scan_url }}">{{ event.planted_in.name }}</a>
+                                                                        · <a href="{{ event.planted_in.detail_url }}">{{ event.planted_in.name }}</a>
                                                                     {% endif %}
                                                                     {% if event.location %}· {{ event.location }}{% endif %}
                                                                 </div>
@@ -383,10 +398,10 @@
                                                     {% endwith %}
                                                 {% else %}
                                                     <td>
-                                                        <a href="{{ first.scan_url }}">{{ first.barcode }}</a>
+                                                        <a href="{{ first.detail_url }}">{{ first.barcode }}</a>
                                                     </td>
                                                     <td>
-                                                        <a href="{{ first.plant.scan_url }}">{{ first.plant.name }}</a>
+                                                        <a href="{{ first.plant.detail_url }}">{{ first.plant.name }}</a>
                                                     </td>
                                                     <td></td>
                                                     <td>{{ first.brand|default:"" }}</td>

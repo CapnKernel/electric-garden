@@ -103,6 +103,27 @@ class TestPlantedDate:
         assert planting.planted_date is None
 
 
+class TestLabel:
+    """``label`` is the short name shown after a barcode (e.g. in breadcrumbs)."""
+
+    def test_container_uses_name(self, container):
+        assert container.label == 'Blue ribbon 1'
+
+    def test_plant_uses_name(self, plant):
+        assert plant.label == 'Dwarf bean'
+
+    def test_packet_uses_plant_name(self, packet):
+        assert packet.label == 'Dwarf bean'
+
+    def test_packet_appends_full_name_after_a_dash(self, packet):
+        packet.full_name = 'Marketmore'
+
+        assert packet.label == 'Dwarf bean - Marketmore'
+
+    def test_planting_uses_plant_name(self, planting):
+        assert planting.label == 'Dwarf bean'
+
+
 class TestSinglePlantedEvent:
     """A planting has at most one ``planted`` event (see the model constraint)."""
 

@@ -33,6 +33,9 @@ class BarcodeManager(models.Manager):
 class BarcodedBase(models.Model):
     barcode_start = 0
     prefix = 'P='
+    # Name of the URL pattern for this model's detail page, used by
+    # ``get_absolute_url``; set on each concrete subclass.
+    detail_url_name = None
     # Number of digits the id is zero-padded to in the barcode.  Derived from
     # ``barcode_start`` (e.g. 100 -> 3 digits, 1000 -> 4 digits) unless set
     # explicitly on the subclass.
@@ -75,14 +78,24 @@ class BarcodedBase(models.Model):
         return self._meta.verbose_name
 
     @property
+    def label(self):
+        """Short human-readable name shown after the barcode (e.g. in breadcrumbs)."""
+        return ''
+
+    @property
     def scan_url(self):
         """URL that shows this object as if its barcode had been scanned."""
 
         return reverse('app:scan', query={'barcode': self.barcode})
 
+    @property
+    def detail_url(self):
+        """URL of this object's detail page (the canonical public URL)."""
+        return reverse(f'app:{self.detail_url_name}', kwargs={'pk': self.pk})
+
     def get_absolute_url(self):
         """Return the canonical public URL for this object."""
-        return self.scan_url
+        return self.detail_url
 
     @classmethod
     def pk_from_barcode(cls, barcode):
@@ -104,6 +117,7 @@ class BarcodedBase(models.Model):
 class Container(BarcodedBase):
     barcode_start = 1
     prefix = 'PC='
+    detail_url_name = 'container_detail'
 
     name = models.CharField(max_length=100)  # Example: 'Blue ribbon 1'
 
@@ -111,6 +125,11 @@ class Container(BarcodedBase):
         # Newest first, so container dropdowns list the most recent containers
         # at the top.
         ordering = ['-pk']
+
+    @property
+    def label(self):
+        """The container's name, e.g. 'Blue ribbon 1'."""
+        return self.name
 
     def __str__(self):
         return f'{self.barcode}: {self.name}'
@@ -152,6 +171,7 @@ class Container(BarcodedBase):
 
 class Plant(BarcodedBase):
     barcode_start = 0  # There won't actually be a 0, this just makes it match better with the others
+    detail_url_name = 'plant_detail'
 
     code = models.CharField(max_length=10, unique=True)  # Example: 'BR' or '豆DGD'
     deleted = models.BooleanField(default=False)
@@ -168,12 +188,18 @@ class Plant(BarcodedBase):
         # verbose_name_plural = "Plants"
         pass
 
+    @property
+    def label(self):
+        """The plant's name, e.g. 'Dwarf bean, Gourmet Delight'."""
+        return self.name
+
     def __str__(self):
         return f'{self.barcode}: {self.name}'
 
 
 class Packet(BarcodedBase):
     barcode_start = 100
+    detail_url_name = 'packet_detail'
 
     plant = models.ForeignKey(Plant, on_delete=models.PROTECT)
     container = models.ForeignKey(Container, on_delete=models.PROTECT, null=True, blank=True)
@@ -198,6 +224,13 @@ class Packet(BarcodedBase):
         """Key used to group rows in a container's contents (see scan_contents)."""
         return ('packet', self.pk)
 
+    @property
+    def label(self):
+        """The packet's plant name, plus its variety (``full_name``) if set."""
+        if self.full_name:
+            return f'{self.plant.name} - {self.full_name}'
+        return self.plant.name
+
     def __str__(self):
         extra = f' ({self.full_name})' if self.full_name else ''
         return f'{self.barcode}: {self.plant.name}{extra}'
@@ -205,6 +238,7 @@ class Packet(BarcodedBase):
 
 class Planting(BarcodedBase):
     barcode_start = 1000
+    detail_url_name = 'planting_detail'
 
     packet = models.ForeignKey(Packet, on_delete=models.PROTECT)
     deleted = models.BooleanField(default=False)
@@ -265,6 +299,11 @@ class Planting(BarcodedBase):
         """
         event = self.location_event
         return event.location if event is not None else None
+
+    @property
+    def label(self):
+        """The planted variety's name."""
+        return self.packet.plant.name
 
     def __str__(self):
         when = f' planted {first_event_date:%d-%b-%Y}' if (first_event_date := self.first_event_date) else ''

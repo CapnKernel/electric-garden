@@ -2,6 +2,7 @@ from django.urls import path
 from django.views.generic import TemplateView
 
 from . import views, wizard  # noqa: F401 - wizard is used by the commented-out URL block below
+from .models import Container, Packet, Plant, Planting
 from .planting import (
     container_germination,
     planting_edit,
@@ -10,7 +11,7 @@ from .planting import (
     planting_event_edit,
     planting_result,
 )
-from .scan import scan_hxpost, scan_page
+from .scan import render_detail, scan_hxpost, scan_page
 
 app_name = 'app'
 
@@ -26,6 +27,11 @@ urlpatterns = [
     # Garden URLs (formerly mounted under /garden/).
     path('scan/', scan_page, name='scan'),
     path('scan_hxpost/', scan_hxpost, name='scan_hxpost'),
+    # Detail pages: the canonical URL for each scannable object.
+    path('plant/<int:pk>/', lambda request, pk: render_detail(request, Plant, pk), name='plant_detail'),
+    path('packet/<int:pk>/', lambda request, pk: render_detail(request, Packet, pk), name='packet_detail'),
+    path('planting/<int:pk>/', lambda request, pk: render_detail(request, Planting, pk), name='planting_detail'),
+    path('container/<int:pk>/', lambda request, pk: render_detail(request, Container, pk), name='container_detail'),
     path('planting/<int:pk>/edit/', planting_edit, name='planting_edit'),
     path('planting/<int:pk>/result/', planting_result, name='planting_result'),
     path('planting/<int:pk>/event/new/', planting_event_create, name='planting_event_create'),

@@ -114,7 +114,7 @@ class TestContainerGerminationView:
         response = authed_client.get(url)
 
         assertContains(response, 'Front garden parsley box')
-        assertContains(response, f'href="{container.scan_url}"')
+        assertContains(response, f'href="{container.detail_url}"')
 
     def test_post_sets_germination_and_creates_event(self, authed_client, container, planting):
         response = authed_client.post(
@@ -133,7 +133,7 @@ class TestContainerGerminationView:
         assert event.planted_in is None
         assert event.location is None
 
-    def test_post_via_htmx_redirects_to_scan_page(self, authed_client, container, planting):
+    def test_post_via_htmx_redirects_to_container_detail(self, authed_client, container, planting):
         response = authed_client.post(
             reverse('app:container_germination', args=[container.pk]),
             {
@@ -145,7 +145,7 @@ class TestContainerGerminationView:
         )
 
         assert response.status_code == 200
-        assert response.headers['HX-Redirect'] == f'{reverse("app:scan")}?barcode={container.barcode}'
+        assert response.headers['HX-Redirect'] == reverse('app:container_detail', kwargs={'pk': container.pk})
 
     def test_post_clears_germination_and_removes_event(self, authed_client, container, planting):
         planting.germinated = 3
@@ -240,20 +240,12 @@ class TestGerminationButton:
     """Tests that the container scan result offers the germination button."""
 
     def test_button_shown_when_container_has_plantings(self, authed_client, container, planting):
-        response = authed_client.post(
-            reverse('app:scan_hxpost'),
-            {'barcode': container.barcode},
-            HTTP_HX_REQUEST='true',
-        )
+        response = authed_client.get(container.detail_url)
 
         assertContains(response, reverse('app:container_germination', args=[container.pk]))
 
     def test_button_not_shown_when_container_empty(self, authed_client, container):
-        response = authed_client.post(
-            reverse('app:scan_hxpost'),
-            {'barcode': container.barcode},
-            HTTP_HX_REQUEST='true',
-        )
+        response = authed_client.get(container.detail_url)
 
         assertNotContains(response, reverse('app:container_germination', args=[container.pk]))
 
@@ -261,11 +253,7 @@ class TestGerminationButton:
         packet.container = container
         packet.save(update_fields=['container'])
 
-        response = authed_client.post(
-            reverse('app:scan_hxpost'),
-            {'barcode': container.barcode},
-            HTTP_HX_REQUEST='true',
-        )
+        response = authed_client.get(container.detail_url)
 
         assertNotContains(response, reverse('app:container_germination', args=[container.pk]))
 
