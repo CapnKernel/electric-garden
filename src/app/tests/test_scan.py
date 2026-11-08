@@ -278,9 +278,9 @@ class TestContainerContentsOrdering:
         e2 = PlantingEvent.objects.create(
             planting=second, event_type='planted', date='2026-01-15', planted_in=container
         )
-        e3 = PlantingEvent.objects.create(
-            planting=first, event_type='germinated', date='2026-03-01', planted_in=container
-        )
+        # A germinated event carries no location details, so it inherits none of
+        # the interleaved dates above; it still sorts last for its planting.
+        e3 = PlantingEvent.objects.create(planting=first, event_type='germinated', date='2026-03-01')
 
         assert self._events(container) == [e1, e3, e2]
 
@@ -289,17 +289,13 @@ class TestContainerContentsRows:
     """One row per planting, listing all of that planting's events."""
 
     def test_planting_row_lists_all_events(self, authed_client, container, planting):
-        PlantingEvent.objects.create(
-            planting=planting,
-            event_type=PlantingEvent.EventType.PLANTED,
-            date='2026-01-01',
-            planted_in=container,
-        )
+        # The ``planting`` fixture already recorded the (single) planted event;
+        # give it the container so the planting is located there.
+        planting.events.filter(event_type=PlantingEvent.EventType.PLANTED).update(planted_in=container)
         PlantingEvent.objects.create(
             planting=planting,
             event_type=PlantingEvent.EventType.GERMINATED,
             date='2026-01-10',
-            planted_in=container,
         )
 
         response = authed_client.post(
@@ -327,9 +323,7 @@ class TestContainerContentsTransplant:
         planted = PlantingEvent.objects.create(
             planting=planting, event_type='planted', date='2026-01-01', planted_in=container
         )
-        germinated = PlantingEvent.objects.create(
-            planting=planting, event_type='germinated', date='2026-01-05', planted_in=container
-        )
+        germinated = PlantingEvent.objects.create(planting=planting, event_type='germinated', date='2026-01-05')
         transplanted = PlantingEvent.objects.create(
             planting=planting, event_type='transplanted', date='2026-02-01', planted_in=destination
         )
@@ -338,6 +332,19 @@ class TestContainerContentsTransplant:
         assert self._events(container) == []
         # ...but in the destination, with its full history.
         assert self._events(destination) == [planted, germinated, transplanted]
+
+    def test_transplant_to_free_text_location_leaves_container(self, container, packet):
+        """``planted_in`` and ``location`` are one location, so a free-text
+        transplant moves the planting out of its former container."""
+        planting = Planting.objects.create(id=1001, packet=packet)
+        PlantingEvent.objects.create(planting=planting, event_type='planted', date='2026-01-01', planted_in=container)
+        PlantingEvent.objects.create(
+            planting=planting, event_type='transplanted', date='2026-02-01', location='B4 4.9-5.45'
+        )
+
+        assert container.plantings == []
+        assert self._events(container) == []
+        assert planting.location == 'B4 4.9-5.45'
 
 
 class TestContainerDisplayExcludesMovedItems:

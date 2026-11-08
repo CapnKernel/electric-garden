@@ -120,10 +120,12 @@ class Container(BarcodedBase):
         """Return the packets and planting events stored in this container.
 
         A planting's events are listed in the container the planting is
-        currently in: the target of its most recent transplant, or else the
-        container named by its most recent container event.  All of the
-        planting's events are shown (grouped by planting, ordered by date), so
-        its planted, germinated and transplanted events appear together.
+        currently in: the container named by its most recent located event (see
+        ``plantings``).  A planting whose latest located event gives only a
+        free-text ``location`` is in no container, so it is not listed
+        anywhere.  All of the planting's events are shown (grouped by planting,
+        ordered by date), so its planted, germinated and transplanted events
+        appear together.
         """
         events = PlantingEvent.objects.filter(planting__in=self.plantings).order_by('planting_id', 'date', 'pk')
         return list(self.packet_set.all()) + list(events)
@@ -132,18 +134,17 @@ class Container(BarcodedBase):
     def plantings(self):
         """Return the plantings currently growing in this container.
 
-        A planting is "in" the container when its most recent event that names
-        a container (``planted_in``) points at this container.  This means a
-        planting that was later transplanted elsewhere is no longer listed.
+        ``planted_in`` and ``location`` are the two halves of a single
+        location, so a planting's location is whatever its most recent located
+        event (``Planting.location_event``) records.  The planting is "in" this
+        container only when that event's ``planted_in`` points here: a
+        transplant into another container moves it, and a transplant to a
+        free-text ``location`` leaves it in no container at all, in both cases
+        removing it from this container's list.
         """
         plantings = []
         for planting in Planting.objects.filter(deleted=False).select_related('packet__plant'):
-            latest = (
-                planting.events.exclude(planted_in__isnull=True)
-                .annotate(recency=PLANTING_EVENT_RECENCY)
-                .order_by('-date', '-recency', '-pk')
-                .first()
-            )
+            latest = planting.location_event
             if latest is not None and latest.planted_in_id == self.pk:
                 plantings.append(planting)
         return plantings
@@ -242,15 +243,14 @@ class Planting(BarcodedBase):
 
     @property
     def location_event(self):
-        """Most recent event that records a container or location, or ``None``.
+        """Most recent event that has a location, or ``None``.
 
         ``germinated`` events carry no location details (see
         ``PlantingEvent.clean``), so they are skipped: a planting's location is
         whatever its latest ``planted`` or ``transplanted`` event recorded.
         """
-        located = models.Q(planted_in__isnull=False) | (models.Q(location__isnull=False) & ~models.Q(location=''))
         return (
-            self.events.filter(located)
+            self.events.filter(PlantingEvent.location_q())
             .annotate(recency=PLANTING_EVENT_RECENCY)
             .order_by('-date', '-recency', '-pk')
             .first()
@@ -258,7 +258,11 @@ class Planting(BarcodedBase):
 
     @property
     def location(self):
-        """Location recorded on the planting's most recent located event, if any."""
+        """Free-text location on the planting's most recent located event, if any.
+
+        This is only the ``location`` half of the location; the other half is the
+        container in ``location_event.planted_in``.
+        """
         event = self.location_event
         return event.location if event is not None else None
 
@@ -318,10 +322,20 @@ class PlantingEvent(models.Model):
         """
         return ('planting', self.planting_id)
 
+    @staticmethod
+    def location_q():
+        """``Q`` matching events that specify a location.
+
+        ``planted_in`` and ``location`` are two parts of one location, so an
+        event has a location when either is set.  An empty string is treated as
+        unset, so a form submitted with a blank ``location`` is not a location.
+        """
+        return models.Q(planted_in__isnull=False) | (models.Q(location__isnull=False) & ~models.Q(location=''))
+
     @property
-    def has_location_details(self):
-        """Whether this event carries a container or location."""
-        return self.planted_in_id is not None or self.location is not None
+    def has_location(self):
+        """Whether this event specifies a location (a container, text, or both)."""
+        return self.planted_in_id is not None or bool(self.location)
 
     def clean(self):
         """Reject invalid event combinations.
@@ -335,7 +349,7 @@ class PlantingEvent(models.Model):
         constraint); later moves are ``transplanted`` events.
         """
         super().clean()
-        if self.event_type == self.EventType.GERMINATED and self.has_location_details:
+        if self.event_type == self.EventType.GERMINATED and self.has_location:
             raise ValidationError({'planted_in': 'A germinated event cannot have a container or location set.'})
         if (
             self.event_type == self.EventType.PLANTED

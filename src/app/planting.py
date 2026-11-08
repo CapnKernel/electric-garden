@@ -110,9 +110,10 @@ def planting_event_delete(request, pk):
 def _container_plantings(container):
     """Return the plantings currently planted in ``container``.
 
-    A planting is "in" the container when its most recent event that names a
-    container (``planted_in``) points at this container.  This means a planting
-    that was later transplanted elsewhere is no longer listed here.
+    A planting is "in" the container when its most recent located event (see
+    ``Container.plantings``) records this container.  A later transplant, into
+    another container or to a free-text location, means it is no longer listed
+    here.
     """
     return container.plantings
 
