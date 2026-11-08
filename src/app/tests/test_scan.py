@@ -96,7 +96,7 @@ class TestScanPage:
         response = authed_client.get(reverse('app:scan'))
 
         assert response.status_code == 200
-        assertContains(response, 'name="barcode"')
+        assertContains(response, 'name="q"')
         assertContains(response, 'autofocus')
 
     def test_navbar_input_posts_to_scan_hxpost(self, authed_client):
@@ -111,13 +111,13 @@ class TestScanPage:
         assertContains(response, '<li class="breadcrumb-item active" aria-current="page">Scan</li>', html=True)
 
     def test_barcode_query_redirects_to_detail_page(self, authed_client, plant):
-        response = authed_client.get(reverse('app:scan'), {'barcode': plant.barcode})
+        response = authed_client.get(reverse('app:scan'), {'q': plant.barcode})
 
         assert response.status_code == 302
         assert response['Location'] == reverse('app:plant_detail', kwargs={'pk': plant.pk})
 
     def test_unknown_barcode_query_sets_error(self, authed_client, db):
-        response = authed_client.get(reverse('app:scan'), {'barcode': 'P=999'})
+        response = authed_client.get(reverse('app:scan'), {'q': 'P=999'})
 
         assert response.status_code == 200
         assert response.context['obj'] is None
@@ -132,8 +132,8 @@ class TestScanHxpost:
     """
 
     @staticmethod
-    def _scan(client, barcode):
-        return client.post(reverse('app:scan_hxpost'), {'barcode': barcode}, HTTP_HX_REQUEST='true')
+    def _scan(client, q):
+        return client.post(reverse('app:scan_hxpost'), {'q': q}, HTTP_HX_REQUEST='true')
 
     def test_redirects_to_plant_detail(self, authed_client, plant):
         response = self._scan(authed_client, 'P=1')
@@ -162,7 +162,7 @@ class TestScanHxpost:
         assert response.status_code == 200
         assert 'HX-Redirect' not in response.headers
         assertContains(response, 'id="scan-result"')
-        assertNotContains(response, 'name="barcode"')
+        assertNotContains(response, 'name="q"')
         assert response.context['obj'] is None
         assert response.context['error'] == 'No object found for barcode P=999'
 
@@ -209,7 +209,7 @@ class TestMarkScanned:
 
         authed_client.post(
             reverse('app:scan_hxpost'),
-            {'barcode': 'P=1'},
+            {'q': 'P=1'},
             HTTP_HX_REQUEST='true',
         )
 
@@ -219,7 +219,7 @@ class TestMarkScanned:
     def test_scan_page_updates_timestamp(self, authed_client, plant):
         assert plant.last_scanned_at is None
 
-        authed_client.get(reverse('app:scan'), {'barcode': 'P=1'})
+        authed_client.get(reverse('app:scan'), {'q': 'P=1'})
 
         plant.refresh_from_db()
         assert plant.last_scanned_at is not None

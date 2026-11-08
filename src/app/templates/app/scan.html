@@ -18,22 +18,7 @@
 {% endblock nav %}
 
 {% block barcode_form %}
-    <form class="d-flex me-3"
-          method="get"
-          action="{% url 'app:scan' %}"
-          hx-post="{% url 'app:scan_hxpost' %}"
-          hx-target="#scan-result"
-          hx-swap="outerHTML"
-          hx-on::after-swap="document.getElementById('navbar-barcode').focus()">
-        <input class="form-control me-2"
-               type="text"
-               id="navbar-barcode"
-               name="barcode"
-               placeholder="Scan barcode..."
-               aria-label="Scan barcode"
-               autocomplete="off"
-               autofocus>
-    </form>
+    {% include "app/partials/scan_input.html" with htmx=True %}
 {% endblock barcode_form %}
 
 {% block breadcrumbs %}
@@ -105,16 +90,43 @@
                 </div>
 
                 {% if obj.verbose_name == 'container' %}
-                    {% partial scan-contents %}
+                    {% partial scan-contents %} {# FIXME: Perhaps rename to scan-container? #}
                 {% elif obj.verbose_name == 'planting' %}
                     {% partial scan-planting %}
                 {% elif obj.verbose_name == 'packet' %}
                     {% partial scan-packet-plantings %}
                 {% endif %}
+            {% elif search_results %}
+                {% partial search-results %}
             {% endif %}
-
         </div>
     {% endpartialdef scan-result %}
+
+    {# Text-search fallback when a scanned string matches no barcode. #}
+    {% partialdef search-results %}
+        <div id="search-results">
+            <p class="text-muted">
+                No barcode matched <code>{{ q }}</code>. Search results:
+            </p>
+            {% for group in search_results %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        {% card_title %}{{ group.title }}{% endcard_title %}
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled mb-0">
+                            {% for item in group.items %}
+                                <li>
+                                    <a href="{{ item.url }}">{{ item.label }}</a>
+                                    {% if item.detail %}<span class="text-muted">— {{ item.detail }}</span>{% endif %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endpartialdef search-results %}
 
     {# Detail rows for a scanned Plant.  Expects ``obj`` to be a Plant. #}
     {% partialdef scan-plant %}

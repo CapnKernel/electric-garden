@@ -11,6 +11,7 @@ from django.views.decorators.http import require_GET, require_POST
 from django_htmx.http import HttpResponseClientRedirect
 
 from .models import Container, Packet, Plant, Planting
+from .search import text_search
 
 
 class BarcodeNotFound(Exception):
@@ -52,13 +53,29 @@ def scan_and_mark(barcode):
     return obj
 
 
+def _search_context(q, exc):
+    """Return the scan-result context for a string that matched no barcode.
+
+    ``q`` is used as a text-search term, and its results are shown instead of
+    an error.  ``exc``'s message is reported only when the search finds nothing
+    either.
+    """
+    search_results = text_search(q)
+    return {
+        'q': q,
+        'obj': None,
+        'error': None if search_results else str(exc),
+        'search_results': search_results,
+    }
+
+
 def render_scan_result(request, obj):
     """Render the ``scan-result`` fragment for a scanned object.
 
     Used by the planting-event CRUD views to re-render the scan result after a
     change, so the page updates in place via htmx.
     """
-    return render(request, 'app/scan.html#scan-result', {'barcode': obj.barcode, 'obj': obj, 'error': None})
+    return render(request, 'app/scan.html#scan-result', {'q': obj.barcode, 'obj': obj, 'error': None})
 
 
 @require_GET
@@ -70,7 +87,7 @@ def render_detail(request, model, pk):
     its ``last_scanned_at``.
     """
     obj = get_object_or_404(model, pk=pk)
-    return render(request, 'app/scan.html', {'barcode': obj.barcode, 'obj': obj, 'error': None})
+    return render(request, 'app/scan.html', {'q': obj.barcode, 'obj': obj, 'error': None})
 
 
 @require_GET
@@ -80,24 +97,25 @@ def scan_page(request):
     Without a barcode it renders an empty input, which posts to
     :func:`scan_hxpost` via htmx.
 
-    With a ``barcode`` query parameter (e.g. ``/scan/?barcode=P%3D1111``) the
-    barcode is scanned and the browser is redirected to the object's detail
-    page, so the address bar names the object rather than the scan endpoint.
-    An unknown barcode renders this page with an error instead.
+    With a ``q`` query parameter (e.g. ``/scan/?q=P%3D1111``) the value is
+    scanned and the browser is redirected to the object's detail page, so the
+    address bar names the object rather than the scan endpoint.  A value that
+    matches no barcode is used as a text-search term, and the matching objects
+    are shown instead of an error.
     """
-    barcode = request.GET.get('barcode', '').strip()
-    error = None
+    barcode = request.GET.get('q', '').strip()
+    context = {
+        'q': barcode,
+        'obj': None,
+        'error': None,
+        'search_results': [],
+    }
     if barcode:
         try:
             return redirect(scan_and_mark(barcode).detail_url)
         except BarcodeNotFound as exc:
-            error = str(exc)
+            context = _search_context(barcode, exc)
 
-    context = {
-        'barcode': barcode,
-        'obj': None,
-        'error': error,
-    }
     return render(request, 'app/scan.html', context)
 
 
@@ -107,21 +125,17 @@ def scan_hxpost(request):
 
     On success the object is looked up and marked as scanned, and htmx is told
     to navigate to its detail page (see :func:`render_detail`) so the URL
-    matches the object shown.  An unknown barcode returns the ``scan-result``
-    fragment with an error, leaving the input in place for the next scan.
+    matches the object shown.  A string that matches no barcode is used as a
+    text-search term; the matching objects are returned in the
+    ``scan-result`` fragment instead of an error.
     """
-    barcode = request.POST.get('barcode', '').strip()
-    error = None
+    barcode = request.POST.get('q', '').strip()
     try:
         obj = scan_and_mark(barcode)
     except BarcodeNotFound as exc:
-        error = str(exc)
+        context = _search_context(barcode, exc)
     else:
         return HttpResponseClientRedirect(obj.detail_url)
 
-    context = {
-        'barcode': barcode,
-        'obj': None,
-        'error': error,
-    }
     return render(request, 'app/scan.html#scan-result', context)
+

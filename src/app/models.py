@@ -86,7 +86,7 @@ class BarcodedBase(models.Model):
     def scan_url(self):
         """URL that shows this object as if its barcode had been scanned."""
 
-        return reverse('app:scan', query={'barcode': self.barcode})
+        return reverse('app:scan', query={'q': self.barcode})
 
     @property
     def detail_url(self):

@@ -1,0 +1,27 @@
+{% comment %}
+The barcode/search input shown in the navbar.
+
+Rendered as a plain GET form by default: pages without a ``#scan-result``
+container submit to the scan page, which redirects when the value is a barcode
+or renders text-search results otherwise.  Templates that render
+``#scan-result`` pass ``htmx=True`` so the value is posted to the htmx handler
+and the results are swapped in place.
+{% endcomment %}
+<form class="d-flex me-3"
+      method="get"
+      action="{% url 'app:scan' %}"
+      {% if htmx %}
+          hx-post="{% url 'app:scan_hxpost' %}"
+          hx-target="#scan-result"
+          hx-swap="outerHTML"
+          hx-on::after-swap="document.getElementById('navbar-barcode').focus()"
+      {% endif %}>
+    <input class="form-control me-2"
+           type="text"
+           id="navbar-barcode"
+           name="q"
+           placeholder="Scan barcode..."
+           aria-label="Scan barcode"
+           autocomplete="off"
+           autofocus>
+</form>

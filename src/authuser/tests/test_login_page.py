@@ -13,4 +13,4 @@ class TestLoginPage:
         response = client.get(reverse('login'))
 
         assert response.status_code == 200
-        assertNotContains(response, 'name="barcode"')
+        assertNotContains(response, 'name="q"')

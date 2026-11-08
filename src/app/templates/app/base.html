@@ -88,16 +88,7 @@
                             </ul>
                         {% endblock nav %}
                         {% block barcode_form %}
-                            <form class="d-flex me-3" method="get" action="{% url 'app:scan' %}">
-                                <input class="form-control me-2"
-                                       type="text"
-                                       id="navbar-barcode"
-                                       name="barcode"
-                                       placeholder="Scan barcode..."
-                                       value="{{ barcode_value }}"
-                                       aria-label="Scan barcode"
-                                       autocomplete="off">
-                            </form>
+                            {% include "app/partials/scan_input.html" %}
                         {% endblock barcode_form %}
                         <ul class="navbar-nav">
                             {% if user.is_authenticated %}
