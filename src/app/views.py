@@ -60,6 +60,14 @@ def plant_now(request):
     return render(request, 'app/top.html#plant-now', ctx)
 
 
+def _schedule_context():
+    """Context for the schedule page and its HTMX fragment."""
+    return {
+        'schedules': PlantingSchedule.objects.select_related('plant'),
+        'add_url': reverse('admin:app_plantingschedule_add'),
+    }
+
+
 @require_GET
 def schedule_list(request):
     """List every planting schedule, in default order.
@@ -68,6 +76,10 @@ def schedule_list(request):
     then start week.  Inactive schedules and schedules for deleted plants are
     included so they can be reviewed.
     """
-    schedules = PlantingSchedule.objects.select_related('plant')
-    add_url = reverse('admin:app_plantingschedule_add')
-    return render(request, 'app/schedule.html', {'schedules': schedules, 'add_url': add_url})
+    return render(request, 'app/schedule.html', _schedule_context())
+
+
+@require_GET
+def schedule_contents(request):
+    """HTMX endpoint returning the schedule table fragment."""
+    return render(request, 'app/schedule.html#schedule-contents', _schedule_context())

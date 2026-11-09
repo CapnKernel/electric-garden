@@ -58,6 +58,8 @@ Do not offer to run all tests unless asked.
 - Write any model declaration line that would trigger `RUF012` as a tuple rather than a mutable type.
 - VSCode is configured to use ruff as the Python formatter (see
   `.vscode/settings.json`, which is gitignored/local-only).
+- This is a Django 6 project, so partials are available and expected.
+- Use the htmx paradigm where possible.  Use alpine.js if it would be useful.
 
 ## Important
 

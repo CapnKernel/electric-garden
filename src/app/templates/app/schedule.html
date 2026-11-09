@@ -24,54 +24,58 @@
 {% endblock h1 %}
 
 {% block body %}
-    <div class="d-flex align-items-center gap-2 mb-3">
-        <a class="btn btn-sm btn-primary" href="{{ add_url }}">Add schedule</a>
-        <span class="text-muted">All schedules, highest priority first.</span>
+    <div hx-get="{% url 'app:schedule_contents' %}" hx-trigger="load">
+        {% partialdef schedule-contents inline %}
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <a class="btn btn-sm btn-primary" href="{{ add_url }}">Add schedule</a>
+                <span class="text-muted">All schedules, highest priority first.</span>
+            </div>
+            {% if schedules %}
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th scope="col">Plant</th>
+                                <th scope="col">Priority</th>
+                                <th scope="col">Weeks</th>
+                                <th scope="col">Approximate months</th>
+                                <th scope="col">Active</th>
+                                <th scope="col">Notes</th>
+                                <th scope="col"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for schedule in schedules %}
+                                <tr>
+                                    <td>
+                                        {{ schedule.plant.name }}
+                                        <span class="text-muted">({{ schedule.plant.barcode }})</span>
+                                        {% if schedule.plant.deleted %}
+                                            <span class="badge text-bg-secondary">deleted plant</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ schedule.priority }}</td>
+                                    <td>{{ schedule.label }}</td>
+                                    <td class="text-muted">{{ schedule.month_hint }}</td>
+                                    <td>
+                                        {% if schedule.active %}
+                                            <span class="badge text-bg-success">active</span>
+                                        {% else %}
+                                            <span class="badge text-bg-secondary">inactive</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ schedule.notes }}</td>
+                                    <td>
+                                        <a href="{% url 'admin:app_plantingschedule_change' schedule.pk %}">Edit</a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-muted">No schedules have been added yet.</p>
+            {% endif %}
+        {% endpartialdef %}
     </div>
-    {% if schedules %}
-        <div class="table-responsive">
-            <table class="table table-sm align-middle">
-                <thead>
-                    <tr>
-                        <th scope="col">Plant</th>
-                        <th scope="col">Priority</th>
-                        <th scope="col">Weeks</th>
-                        <th scope="col">Approximate months</th>
-                        <th scope="col">Active</th>
-                        <th scope="col">Notes</th>
-                        <th scope="col"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for schedule in schedules %}
-                        <tr>
-                            <td>
-                                {{ schedule.plant.name }}
-                                <span class="text-muted">({{ schedule.plant.barcode }})</span>
-                                {% if schedule.plant.deleted %}
-                                    <span class="badge text-bg-secondary">deleted plant</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ schedule.priority }}</td>
-                            <td>{{ schedule.label }}</td>
-                            <td class="text-muted">{{ schedule.month_hint }}</td>
-                            <td>
-                                {% if schedule.active %}
-                                    <span class="badge text-bg-success">active</span>
-                                {% else %}
-                                    <span class="badge text-bg-secondary">inactive</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ schedule.notes }}</td>
-                            <td>
-                                <a href="{% url 'admin:app_plantingschedule_change' schedule.pk %}">Edit</a>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    {% else %}
-        <p class="text-muted">No schedules have been added yet.</p>
-    {% endif %}
 {% endblock body %}

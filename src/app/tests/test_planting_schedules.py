@@ -418,6 +418,22 @@ def test_schedule_list_links_to_admin(authed_client, plant):
     assertContains(response, reverse('admin:app_plantingschedule_change', args=[schedule.pk]))
 
 
+def test_schedule_page_loads_contents_with_htmx(authed_client, plant):
+    response = authed_client.get(reverse('app:schedule'))
+
+    assertContains(response, f'hx-get="{reverse("app:schedule_contents")}"')
+    assertContains(response, 'hx-trigger="load"')
+
+
+def test_schedule_contents_partial_lists_schedules(authed_client, plant):
+    make_schedule(plant, 45, 48)
+
+    response = authed_client.get(reverse('app:schedule_contents'))
+
+    assertContains(response, 'Beetroot')
+    assertNotContains(response, '<html')
+
+
 # --- admin -------------------------------------------------------------------
 
 
