@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import Planting, PlantingEvent
+from .models import PlantingEvent
 
 
 class GerminationRowForm(forms.Form):
@@ -32,31 +32,6 @@ class GerminationRowForm(forms.Form):
         if cleaned.get('germinated') and cleaned.get('score') is None:
             self.add_error('score', 'Choose a germination score between 0 and 3.')
         return cleaned
-
-
-class PlantingForm(forms.ModelForm):
-    """Form for editing a planting."""
-
-    # CSS classes applied to each field's widget in ``__init__``.
-    widget_classes = {
-        'packet': 'form-select',
-        'germinated': 'form-control',
-        'deleted': 'form-check-input',
-    }
-
-    class Meta:
-        model = Planting
-        fields = ('packet', 'germinated', 'deleted')
-        widgets = {
-            'germinated': forms.NumberInput(attrs={'min': 0, 'max': 3}),
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for name, css_class in self.widget_classes.items():
-            widget = self.fields[name].widget
-            existing = widget.attrs.get('class', '')
-            widget.attrs['class'] = f'{existing} {css_class}'.strip()
 
 
 class PlantingEventForm(forms.ModelForm):

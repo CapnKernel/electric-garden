@@ -375,7 +375,10 @@
                 {% else %}
                     <p class="text-muted">No events recorded.</p>
                 {% endif %}
-                <a href="{% url 'app:planting_edit' pk=obj.pk %}" class="btn btn-primary btn-sm">Edit this planting</a>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'app:planting_germination' pk=obj.pk %}"
+                       class="btn btn-primary btn-sm">Germination</a>
+                </div>
             </div>
         </div>
     {% endpartialdef scan-planting %}

@@ -440,11 +440,6 @@ class TestDetailViews:
 
         assertContains(response, f'href="{reverse("admin:index")}"')
 
-    def test_planting_edit_admin_link_targets_the_planting(self, authed_client, planting):
-        response = authed_client.get(reverse('app:planting_edit', kwargs={'pk': planting.pk}))
-
-        assertContains(response, f'href="{reverse("admin:app_planting_change", args=[planting.pk])}"')
-
     @pytest.mark.parametrize(
         'url_name,model',
         [

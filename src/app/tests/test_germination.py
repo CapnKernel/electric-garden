@@ -1,4 +1,4 @@
-"""Tests for the container germination form."""
+"""Tests for the germination form."""
 
 import pytest
 from django.urls import reverse
@@ -252,6 +252,92 @@ class TestContainerGerminationView:
         assert other_planting.germinated is None
 
 
+class TestPlantingGerminationView:
+    """Tests for the single-planting germination form view."""
+
+    def test_get_context_describes_the_planting(self, authed_client, planting):
+        response = authed_client.get(reverse('app:planting_germination', args=[planting.pk]))
+
+        assert response.status_code == 200
+        assert response.context['heading'] == f'Germination - {planting}'
+        assert response.context['germination_url'] == reverse('app:planting_germination', args=[planting.pk])
+        assert response.context['detail_url'] == planting.detail_url
+        assert response.context['admin_url'] == planting.admin_url
+        ((row_planting, form),) = response.context['rows']
+        assert row_planting == planting
+        assert form.prefix == str(planting.pk)
+
+    def test_get_renders_form(self, authed_client, planting):
+        response = authed_client.get(reverse('app:planting_germination', args=[planting.pk]))
+
+        assert response.status_code == 200
+        assertContains(response, 'Germination')
+        assertContains(response, planting.barcode)
+
+    def test_get_is_full_page_titled_with_planting(self, authed_client, planting):
+        response = authed_client.get(reverse('app:planting_germination', args=[planting.pk]))
+
+        assertContains(response, '<!DOCTYPE html>')
+        assertContains(response, planting.packet.plant.name)
+        assertNotContains(response, 'Scan barcode')
+
+    def test_get_admin_link_targets_the_planting(self, authed_client, planting):
+        response = authed_client.get(reverse('app:planting_germination', args=[planting.pk]))
+
+        assertContains(response, f'href="{reverse("admin:app_planting_change", args=[planting.pk])}"')
+
+    def test_post_sets_germination_and_creates_event(self, authed_client, planting):
+        response = authed_client.post(
+            reverse('app:planting_germination', args=[planting.pk]),
+            {
+                f'{planting.pk}-planting_id': planting.pk,
+                f'{planting.pk}-germinated': 'on',
+                f'{planting.pk}-score': '2',
+            },
+        )
+
+        assert response.status_code == 302
+        assert response.url == planting.detail_url
+        planting.refresh_from_db()
+        assert planting.germinated == 2
+        event = planting.events.get(event_type=PlantingEvent.EventType.GERMINATED)
+        assert event.planted_in is None
+        assert event.location is None
+
+    def test_post_clears_germination_and_removes_event(self, authed_client, planting):
+        planting.germinated = 3
+        planting.save(update_fields=['germinated'])
+        PlantingEvent.objects.create(
+            planting=planting,
+            event_type=PlantingEvent.EventType.GERMINATED,
+            date='2026-02-01',
+        )
+
+        authed_client.post(
+            reverse('app:planting_germination', args=[planting.pk]),
+            {f'{planting.pk}-planting_id': planting.pk},
+        )
+
+        planting.refresh_from_db()
+        assert planting.germinated is None
+        assert not planting.events.filter(event_type=PlantingEvent.EventType.GERMINATED).exists()
+
+    def test_post_germinated_without_score_is_invalid(self, authed_client, planting):
+        response = authed_client.post(
+            reverse('app:planting_germination', args=[planting.pk]),
+            {
+                f'{planting.pk}-planting_id': planting.pk,
+                f'{planting.pk}-germinated': 'on',
+            },
+        )
+
+        assert response.status_code == 200
+        _, form = response.context['rows'][0]
+        assert form.errors['score'] == ['Choose a germination score between 0 and 3.']
+        planting.refresh_from_db()
+        assert planting.germinated is None
+
+
 class TestGerminationButton:
     """Tests that the container scan result offers the germination button."""
 
@@ -264,6 +350,11 @@ class TestGerminationButton:
         response = authed_client.get(container.detail_url)
 
         assertNotContains(response, reverse('app:container_germination', args=[container.pk]))
+
+    def test_button_shown_on_planting_detail(self, authed_client, planting):
+        response = authed_client.get(planting.detail_url)
+
+        assertContains(response, reverse('app:planting_germination', args=[planting.pk]))
 
     def test_button_not_shown_when_container_has_no_plantings(self, authed_client, container, packet):
         packet.container = container

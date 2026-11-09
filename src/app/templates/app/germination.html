@@ -4,7 +4,7 @@
 {% load app_tags %}
 
 {% block title %}
-    Germination - {{ container.name }} ({{ container.barcode }})
+    {{ heading }}
 {% endblock title %}
 
 {% block nav %}
@@ -15,7 +15,7 @@
 {% block barcode_form %}
 {% endblock barcode_form %}
 
-{% block item-admin-link %}{{ container.admin_url }}{% endblock item-admin-link %}
+{% block item-admin-link %}{{ admin_url }}{% endblock item-admin-link %}
 
 {% block breadcrumbs %}
     <nav aria-label="breadcrumb">
@@ -26,18 +26,22 @@
             <li class="breadcrumb-item">
                 <a href="{% url 'app:scan' %}">Scan</a>
             </li>
-            <li class="breadcrumb-item active">Germination - {{ container.name }} ({{ container.barcode }})</li>
+            <li class="breadcrumb-item active">{{ heading }}</li>
         </ol>
     </nav>
 {% endblock breadcrumbs %}
 
 {% block h1 %}
-    Germination - {{ container.name }} ({{ container.barcode }})
+    {{ heading }}
 {% endblock h1 %}
 
 {% block body %}
-    {# Germination form for a Container.  Expects ``container`` and ``rows`` (planting/form pairs). #}
-    {% partialdef container-germination-form inline %}
+    {% comment %}
+    Germination form for a container or a planting.  Expects ``heading``,
+    ``germination_url``, ``detail_url``, ``admin_url`` and ``rows``
+    (planting/form pairs).
+    {% endcomment %}
+    {% partialdef germination-form inline %}
         <div id="germination-form">
             <div class="card mb-4">
                 <div class="card-header">
@@ -45,7 +49,7 @@
                 </div>
                 <div class="card-body">
                     {% if rows %}
-                        <form hx-post="{% url 'app:container_germination' pk=container.pk %}"
+                        <form hx-post="{{ germination_url }}"
                               hx-target="#germination-form"
                               hx-swap="outerHTML">
                             {% csrf_token %}
@@ -122,7 +126,7 @@
                                 </table>
                             </div>
                             <button type="submit" class="btn btn-primary btn-sm">Save</button>
-                            <a href="{{ container.detail_url }}" class="btn btn-secondary btn-sm">Cancel</a>
+                            <a href="{{ detail_url }}" class="btn btn-secondary btn-sm">Cancel</a>
                         </form>
                     {% else %}
                         <p class="text-muted">No plantings in this container.</p>
@@ -130,5 +134,5 @@
                 </div>
             </div>
         </div>
-    {% endpartialdef container-germination-form %}
+    {% endpartialdef germination-form %}
 {% endblock body %}

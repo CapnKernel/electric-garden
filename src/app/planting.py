@@ -1,41 +1,16 @@
-"""Views for editing plantings and their events."""
+"""Views for managing plantings and their events."""
 
 from django.contrib import messages
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 from django_htmx.http import HttpResponseClientRedirect
 
-from .forms import GerminationRowForm, PlantingEventForm, PlantingForm
+from .forms import GerminationRowForm, PlantingEventForm
 from .models import Container, Planting, PlantingEvent
 from .scan import render_scan_result
-
-
-def planting_edit(request, pk):
-    """Edit a planting and its events.
-
-    GET shows the planting form plus a formset of its events; POST saves both
-    and redirects back to the scan result for that planting.
-    """
-    planting = get_object_or_404(Planting, pk=pk)
-    if request.method == 'POST':
-        form = PlantingForm(request.POST, instance=planting)
-        if form.is_valid():
-            changed = form.has_changed()
-            planting = form.save()
-            if changed:
-                planting.mark_scanned()
-            return redirect(planting.detail_url)
-    else:
-        form = PlantingForm(instance=planting)
-
-    context = {
-        'planting': planting,
-        'form': form,
-        'event_form': PlantingEventForm(),
-    }
-    return render(request, 'app/planting_edit.html', context)
 
 
 @require_GET
@@ -117,8 +92,8 @@ def _container_plantings(container):
     return container.plantings
 
 
-def _germination_rows(container):
-    """Build the initial data for the container germination form rows.
+def _germination_rows(plantings):
+    """Build the initial data for the germination form rows.
 
     ``score`` is the planting's recorded score, or ``None`` when none has been
     set; there is deliberately no default so an untouched slider is unset.
@@ -129,41 +104,78 @@ def _germination_rows(container):
             'germinated': planting.germinated is not None,
             'score': planting.germinated,
         }
-        for planting in _container_plantings(container)
+        for planting in plantings
     ]
 
 
-def container_germination(request, pk):
-    """Show and save the germination state of a container's plantings.
+def _germination(request, obj, plantings, germination_url, heading):
+    """Show and save the germination state of ``plantings``.
 
-    GET renders a full page titled with the container name, one row per
-    planting.  POST saves the germination state of each planting; on success it
-    redirects to the container's scan page, and on validation failure it
-    re-renders the form fragment (via htmx) so nothing entered is lost.
+    Shared by the container and planting germination views.  ``obj`` is the
+    object the form belongs to (used for the redirect and admin link),
+    ``germination_url`` is the form's submit target and ``heading`` titles the
+    page.  GET renders a full page with one row per planting.  POST saves the
+    germination state of each planting; on success it redirects to ``obj``'s
+    scan page, and on validation failure it re-renders the form fragment (via
+    htmx) so nothing entered is lost.
     """
-    container = get_object_or_404(Container, pk=pk)
-    plantings = _container_plantings(container)
-
     if request.method == 'POST':
         forms = [GerminationRowForm(request.POST, prefix=str(planting.pk)) for planting in plantings]
         if all(form.is_valid() for form in forms):
             try:
-                _save_germination(container, plantings, forms)
+                _save_germination(plantings, forms)
             except Exception as exc:  # noqa: BLE001 - surface any save failure to the user
                 messages.error(request, f'Could not save germination: {exc}')
             else:
-                return _detail_redirect(request, container)
+                return _detail_redirect(request, obj)
 
-        rows = list(zip(plantings, forms))
         return render(
             request,
-            'app/container_germination.html#container-germination-form',
-            {'container': container, 'rows': rows},
+            'app/germination.html#germination-form',
+            _germination_context(obj, plantings, forms, germination_url, heading),
         )
 
-    forms = [GerminationRowForm(initial=row, prefix=str(row['planting_id'])) for row in _germination_rows(container)]
-    rows = list(zip(plantings, forms))
-    return render(request, 'app/container_germination.html', {'container': container, 'rows': rows})
+    forms = [GerminationRowForm(initial=row, prefix=str(row['planting_id'])) for row in _germination_rows(plantings)]
+    return render(
+        request,
+        'app/germination.html',
+        _germination_context(obj, plantings, forms, germination_url, heading),
+    )
+
+
+def _germination_context(obj, plantings, forms, germination_url, heading):
+    """Build the context shared by the full page and htmx fragment render."""
+    return {
+        'rows': list(zip(plantings, forms)),
+        'heading': heading,
+        'germination_url': germination_url,
+        'detail_url': obj.detail_url,
+        'admin_url': obj.admin_url,
+    }
+
+
+def container_germination(request, pk):
+    """Show and save the germination state of a container's plantings."""
+    container = get_object_or_404(Container, pk=pk)
+    return _germination(
+        request,
+        obj=container,
+        plantings=_container_plantings(container),
+        germination_url=reverse('app:container_germination', kwargs={'pk': container.pk}),
+        heading=f'Germination - {container.name} ({container.barcode})',
+    )
+
+
+def planting_germination(request, pk):
+    """Show and save the germination state of a single planting."""
+    planting = get_object_or_404(Planting, pk=pk)
+    return _germination(
+        request,
+        obj=planting,
+        plantings=[planting],
+        germination_url=reverse('app:planting_germination', kwargs={'pk': planting.pk}),
+        heading=f'Germination - {planting}',
+    )
 
 
 def _detail_redirect(request, obj):
@@ -173,7 +185,7 @@ def _detail_redirect(request, obj):
     return redirect(obj.detail_url)
 
 
-def _save_germination(container, plantings, forms):
+def _save_germination(plantings, forms):
     """Persist the germination state from ``forms`` onto ``plantings``.
 
     A planting whose row is checked gets its ``germinated`` score set and a
