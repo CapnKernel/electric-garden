@@ -9,7 +9,6 @@ from .planting import (
     planting_event_delete,
     planting_event_edit,
     planting_germination,
-    planting_result,
 )
 from .scan import render_detail, scan_hxpost, scan_page
 
@@ -32,7 +31,6 @@ urlpatterns = [
     path('packet/<int:pk>/', lambda request, pk: render_detail(request, Packet, pk), name='packet_detail'),
     path('planting/<int:pk>/', lambda request, pk: render_detail(request, Planting, pk), name='planting_detail'),
     path('container/<int:pk>/', lambda request, pk: render_detail(request, Container, pk), name='container_detail'),
-    path('planting/<int:pk>/result/', planting_result, name='planting_result'),
     path('planting/<int:pk>/germination/', planting_germination, name='planting_germination'),
     path('planting/<int:pk>/event/new/', planting_event_create, name='planting_event_create'),
     path('planting/event/<int:pk>/edit/', planting_event_edit, name='planting_event_edit'),

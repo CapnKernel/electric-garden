@@ -528,11 +528,7 @@
                             </div>
                         {% endfor %}
                         <button type="submit" class="btn btn-primary btn-sm">Save</button>
-                        <button type="button"
-                                class="btn btn-secondary btn-sm"
-                                hx-get="{% url 'app:planting_result' pk=planting.pk %}"
-                                hx-target="#scan-result"
-                                hx-swap="outerHTML">Cancel</button>
+                        <a href="{{ planting.detail_url }}" class="btn btn-secondary btn-sm">Cancel</a>
                     </form>
                 </div>
             </div>

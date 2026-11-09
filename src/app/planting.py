@@ -5,23 +5,12 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_POST
 from django_htmx.http import HttpResponseClientRedirect
 
 from .forms import GerminationRowForm, PlantingEventForm
 from .models import Container, Planting, PlantingEvent
 from .scan import render_scan_result
-
-
-@require_GET
-def planting_result(request, pk):
-    """Return the ``scan-result`` fragment for a planting (GET).
-
-    Used as the htmx target when cancelling an event form, so the scan result
-    is restored without a full page load.
-    """
-    planting = get_object_or_404(Planting, pk=pk)
-    return render_scan_result(request, planting)
 
 
 def planting_event_create(request, pk):
