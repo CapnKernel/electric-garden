@@ -1,3 +1,4 @@
+from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.utils import timezone
@@ -60,13 +61,14 @@ def plant_now(request):
     return render(request, 'app/top.html#plant-now', ctx)
 
 
-def _schedule_context():
+def _schedule_context(highlight_id=None):
     """Context for the schedule page and its HTMX fragment."""
     return {
         'schedules': PlantingSchedule.objects.select_related('plant').order_by(
             '-active', '-priority', 'start_week', 'plant_id'
         ),
         'add_url': reverse('admin:app_plantingschedule_add'),
+        'highlight_id': highlight_id,
     }
 
 
@@ -93,4 +95,46 @@ def schedule_toggle(request, pk):
     schedule = get_object_or_404(PlantingSchedule, pk=pk)
     schedule.active = not schedule.active
     schedule.save(update_fields=['active'])
+    return render(
+        request,
+        'app/schedule.html#schedule-contents',
+        _schedule_context(highlight_id=schedule.pk),
+    )
+
+
+@require_POST
+def schedule_reorder(request):
+    """Move a schedule after another and re-space that group's priorities.
+
+    ``dragged`` is the schedule being moved; ``after`` is the schedule it should
+    follow, or blank to move it to the top of its active/inactive group.
+    """
+    try:
+        dragged_id = int(request.POST.get('dragged', ''))
+        after_id = int(request.POST['after']) if request.POST.get('after') else None
+    except (TypeError, ValueError):
+        return HttpResponseBadRequest('Invalid schedule ids.')
+
+    dragged = get_object_or_404(PlantingSchedule, pk=dragged_id)
+    after = get_object_or_404(PlantingSchedule, pk=after_id) if after_id is not None else None
+    if after is not None and after.active != dragged.active:
+        return HttpResponseBadRequest('Schedules must be in the same active/inactive group.')
+
+    siblings = list(
+        PlantingSchedule.objects.filter(active=dragged.active)
+        .exclude(pk=dragged.pk)
+        .order_by('-priority', 'start_week', 'plant_id')
+    )
+    if after is None:
+        index = 0
+    else:
+        index = next((position + 1 for position, schedule in enumerate(siblings) if schedule.pk == after.pk), None)
+        if index is None:
+            return HttpResponseBadRequest('The after schedule is not in the same active/inactive group.')
+    siblings.insert(index, dragged)
+
+    total = len(siblings)
+    for position, schedule in enumerate(siblings):
+        schedule.priority = (total - position) / (total + 1)
+    PlantingSchedule.objects.bulk_update(siblings, ['priority'])
     return render(request, 'app/schedule.html#schedule-contents', _schedule_context())

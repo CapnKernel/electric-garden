@@ -433,6 +433,23 @@ def test_schedule_page_loads_contents_with_htmx(authed_client, plant):
     assertContains(response, 'hx-trigger="load"')
 
 
+def test_schedule_page_has_reorder_indicator(authed_client):
+    response = authed_client.get(reverse('app:schedule'))
+
+    assertContains(response, 'id="schedule-spinner"')
+    assertContains(response, 'reorder-indicator')
+    assertContains(response, "indicator: '#schedule-spinner'")
+    assertNotContains(response, 'hx-indicator="#schedule-spinner"')
+    assertContains(response, 'Reordering…')
+
+
+def test_schedule_page_blocks_cross_group_drags(authed_client):
+    response = authed_client.get(reverse('app:schedule'))
+
+    assertContains(response, "dropEffect = 'none'")
+    assertContains(response, 'Cannot move a schedule between active and inactive groups')
+
+
 def test_schedule_contents_returns_schedules(authed_client, plant):
     schedule = make_schedule(plant, 45, 48)
 
@@ -465,7 +482,7 @@ def test_schedule_toggle_deactivates_schedule(authed_client, plant):
 
     schedule.refresh_from_db()
     assert schedule.active is False
-    assertContains(response, 'text-bg-secondary')
+    assertContains(response, 'bg-secondary-subtle')
 
 
 def test_schedule_toggle_activates_schedule(authed_client, plant):
@@ -475,7 +492,7 @@ def test_schedule_toggle_activates_schedule(authed_client, plant):
 
     schedule.refresh_from_db()
     assert schedule.active is True
-    assertContains(response, 'text-bg-success')
+    assertContains(response, 'bg-success-subtle')
 
 
 def test_schedule_toggle_returns_resorted_list(authed_client, plant):
@@ -489,10 +506,124 @@ def test_schedule_toggle_returns_resorted_list(authed_client, plant):
     assert list(response.context['schedules']) == [inactive, toggled]
 
 
+def test_schedule_toggle_marks_deactivated_schedule(authed_client, plant):
+    schedule = make_schedule(plant, 45, 48)
+
+    response = authed_client.post(reverse('app:schedule_toggle', args=[schedule.pk]))
+
+    assert response.context['highlight_id'] == schedule.pk
+    assertContains(response, 'data-toggled="deactivated"')
+
+
+def test_schedule_toggle_marks_activated_schedule(authed_client, plant):
+    schedule = make_schedule(plant, 45, 48, active=False)
+
+    response = authed_client.post(reverse('app:schedule_toggle', args=[schedule.pk]))
+
+    assert response.context['highlight_id'] == schedule.pk
+    assertContains(response, 'data-toggled="activated"')
+
+
+def test_schedule_list_has_no_toggle_mark(authed_client, plant):
+    make_schedule(plant, 45, 48)
+
+    response = authed_client.get(reverse('app:schedule'))
+
+    assert response.context['highlight_id'] is None
+    assertNotContains(response, 'data-toggled')
+
+
 def test_schedule_toggle_requires_post(authed_client, plant):
     schedule = make_schedule(plant, 45, 48)
 
     response = authed_client.get(reverse('app:schedule_toggle', args=[schedule.pk]))
+
+    assert response.status_code == 405
+
+
+def test_schedule_page_renders_drag_handles(authed_client, plant):
+    schedule = make_schedule(plant, 45, 48)
+
+    response = authed_client.get(reverse('app:schedule'))
+
+    assertContains(response, 'draggable="true"')
+    assertContains(response, f'data-id="{schedule.pk}"')
+    assertContains(response, 'x-data="scheduleReorder')
+
+
+def test_schedule_reorder_moves_after_schedule(authed_client, plant):
+    other = Plant.objects.create(id=2, code='CB', name='Cabbage')
+    third = Plant.objects.create(id=3, code='LE', name='Lettuce')
+    first = make_schedule(plant, 40, 44)
+    second = make_schedule(other, 41, 45)
+    third = make_schedule(third, 42, 46)
+
+    response = authed_client.post(
+        reverse('app:schedule_reorder'),
+        {'dragged': third.pk, 'after': first.pk},
+    )
+
+    first.refresh_from_db()
+    second.refresh_from_db()
+    third.refresh_from_db()
+    assert list(response.context['schedules']) == [first, third, second]
+    assert first.priority == 0.75
+    assert third.priority == 0.5
+    assert second.priority == 0.25
+
+
+def test_schedule_reorder_moves_to_top_when_after_is_blank(authed_client, plant):
+    other = Plant.objects.create(id=2, code='CB', name='Cabbage')
+    first = make_schedule(plant, 40, 44)
+    second = make_schedule(other, 41, 45)
+
+    response = authed_client.post(
+        reverse('app:schedule_reorder'),
+        {'dragged': second.pk, 'after': ''},
+    )
+
+    first.refresh_from_db()
+    second.refresh_from_db()
+    assert list(response.context['schedules']) == [second, first]
+    assert second.priority == 2 / 3
+    assert first.priority == 1 / 3
+
+
+def test_schedule_reorder_rejects_cross_group_move(authed_client, plant):
+    active = make_schedule(plant, 40, 44)
+    inactive = make_schedule(plant, 45, 48, active=False)
+
+    response = authed_client.post(
+        reverse('app:schedule_reorder'),
+        {'dragged': inactive.pk, 'after': active.pk},
+    )
+
+    assert response.status_code == 400
+    assertContains(response, 'Schedules must be in the same active/inactive group.', status_code=400)
+
+
+def test_schedule_reorder_rejects_self_as_after(authed_client, plant):
+    schedule = make_schedule(plant, 45, 48)
+
+    response = authed_client.post(
+        reverse('app:schedule_reorder'),
+        {'dragged': schedule.pk, 'after': schedule.pk},
+    )
+
+    assert response.status_code == 400
+
+
+def test_schedule_reorder_rejects_invalid_ids(authed_client, plant):
+    response = authed_client.post(
+        reverse('app:schedule_reorder'),
+        {'dragged': 'not-an-id', 'after': ''},
+    )
+
+    assert response.status_code == 400
+
+
+def test_schedule_reorder_requires_post(authed_client, plant):
+    response = authed_client.get(reverse('app:schedule_reorder'))
 
     assert response.status_code == 405
 

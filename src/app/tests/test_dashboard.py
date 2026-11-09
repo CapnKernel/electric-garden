@@ -47,6 +47,14 @@ def test_renders_headings(authed_client, garden_data):
     assertContains(response, 'Containers')
 
 
+def test_base_template_includes_toast_support(authed_client, db):
+    """The shared base template provides the toast container and helper."""
+    response = authed_client.get(reverse('app:top'))
+
+    assertContains(response, 'id="toastContainer"')
+    assertContains(response, 'function showToast')
+
+
 def test_loads_stats_partial_via_htmx(authed_client, garden_data):
     """The dashboard fetches its statistics from the dash_stats partial."""
     response = authed_client.get(reverse('app:top'))

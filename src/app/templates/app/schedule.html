@@ -24,9 +24,15 @@
 {% endblock h1 %}
 
 {% block body %}
+    <div id="schedule-spinner" class="reorder-indicator text-muted mb-2">
+        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+        Reordering…
+    </div>
     <div id="schedule-contents"
          hx-get="{% url 'app:schedule_contents' %}"
-         hx-trigger="load">
+         hx-trigger="load"
+         x-data="scheduleReorder('{% url 'app:schedule_reorder' %}')"
+         @htmx:after-request="afterRequest($event)">
         {% partialdef schedule-contents inline %}
             <div class="d-flex align-items-center gap-2 mb-3">
                 <a class="btn btn-sm btn-primary" href="{{ add_url }}">Add schedule</a>
@@ -37,10 +43,9 @@
                     <table class="table table-sm align-middle">
                         <thead>
                             <tr>
+                                <th scope="col" aria-label="Reorder"></th>
                                 <th scope="col">Plant</th>
-                                <th scope="col">Priority</th>
-                                <th scope="col">Weeks</th>
-                                <th scope="col">Approximate months</th>
+                                <th scope="col">When</th>
                                 <th scope="col">Active</th>
                                 <th scope="col">Notes</th>
                                 <th scope="col"></th>
@@ -48,7 +53,15 @@
                         </thead>
                         <tbody>
                             {% for schedule in schedules %}
-                                <tr>
+                                <tr draggable="true"
+                                    data-id="{{ schedule.pk }}"
+                                    data-active="{{ schedule.active|yesno:'1,0' }}"
+                                    @dragstart="start($event)"
+                                    @dragover="over($event)"
+                                    @drop="drop($event)"
+                                    @dragend="end()">
+                                    <td class="text-muted drag-handle"
+                                        title="Drag to reorder">⠿</td>
                                     <td>
                                         {{ schedule.plant.name }}
                                         <span class="text-muted">({{ schedule.plant.barcode }})</span>
@@ -56,17 +69,24 @@
                                             <span class="badge text-bg-secondary">deleted plant</span>
                                         {% endif %}
                                     </td>
-                                    <td>{{ schedule.priority }}</td>
-                                    <td>{{ schedule.label }}</td>
-                                    <td class="text-muted">{{ schedule.month_hint }}</td>
+                                    <td>{{ schedule.label }} <span class="text-muted">({{ schedule.month_hint }})</span></td>
                                     <td>
                                         <button type="button"
-                                                class="badge border-0 {% if schedule.active %}text-bg-success{% else %}text-bg-secondary{% endif %}"
+                                                class="badge
+                                                       {% if schedule.pk == highlight_id and schedule.active %}bg-success-subtle text-success-emphasis border border-success{% endif %}
+                                                       {% if schedule.pk == highlight_id and not schedule.active %}bg-secondary-subtle text-secondary-emphasis border border-secondary{% endif %}
+                                                       {% if schedule.pk != highlight_id and schedule.active %}text-bg-success border-0{% endif %}
+                                                       {% if schedule.pk != highlight_id and not schedule.active %}text-bg-secondary border-0{% endif %}"
+                                                {% if schedule.pk == highlight_id %}data-toggled="{{ schedule.active|yesno:'activated,deactivated' }}"{% endif %}
                                                 hx-post="{% url 'app:schedule_toggle' schedule.pk %}"
                                                 hx-target="#schedule-contents"
                                                 hx-swap="innerHTML"
                                                 title="Click to {% if schedule.active %}deactivate{% else %}activate{% endif %}">
-                                            {% if schedule.active %}active{% else %}inactive{% endif %}
+                                            {% if schedule.pk == highlight_id %}
+                                                {{ schedule.active|yesno:'activated,deactivated' }}
+                                            {% else %}
+                                                {{ schedule.active|yesno:'active,inactive' }}
+                                            {% endif %}
                                         </button>
                                     </td>
                                     <td>{{ schedule.notes }}</td>
@@ -84,3 +104,88 @@
         {% endpartialdef %}
     </div>
 {% endblock body %}
+
+{% block extra_js %}
+    {{ block.super }}
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('scheduleReorder', (url) => ({
+                url,
+                dragged: null,
+                reordering: false,
+                invalidDrop: false,
+                start(event) {
+                    this.dragged = event.currentTarget;
+                    this.invalidDrop = false;
+                    event.dataTransfer.effectAllowed = 'move';
+                },
+                over(event) {
+                    event.preventDefault();
+                    const row = event.currentTarget;
+                    if (!this.dragged || row === this.dragged) {
+                        return;
+                    }
+                    if (row.dataset.active !== this.dragged.dataset.active) {
+                        this.invalidDrop = true;
+                        event.dataTransfer.dropEffect = 'none';
+                        return;
+                    }
+                    this.invalidDrop = false;
+                    const rect = row.getBoundingClientRect();
+                    const after = event.clientY > rect.top + rect.height / 2;
+                    row.parentNode.insertBefore(this.dragged, after ? row.nextElementSibling : row);
+                },
+                drop(event) {
+                    event.preventDefault();
+                    if (!this.dragged) {
+                        return;
+                    }
+                    if (event.currentTarget.dataset.active !== this.dragged.dataset.active) {
+                        this.invalidDrop = false;
+                        showToast('Cannot move a schedule between active and inactive groups', 'danger');
+                        this.dragged = null;
+                        return;
+                    }
+                    let afterRow = this.dragged.previousElementSibling;
+                    while (afterRow && afterRow.dataset.active !== this.dragged.dataset.active) {
+                        afterRow = afterRow.previousElementSibling;
+                    }
+                    const dragged = this.dragged.dataset.id;
+                    const after = afterRow ? afterRow.dataset.id : '';
+                    console.log('schedule reorder', { dragged, after });
+                    this.reordering = true;
+                    htmx.ajax('POST', this.url, {
+                        source: '#schedule-contents',
+                        target: '#schedule-contents',
+                        swap: 'innerHTML',
+                        indicator: '#schedule-spinner',
+                        values: {
+                            dragged,
+                            after,
+                            csrfmiddlewaretoken: '{{ csrf_token }}',
+                        },
+                    });
+                    this.dragged = null;
+                },
+                end() {
+                    if (this.invalidDrop) {
+                        showToast('Cannot move a schedule between active and inactive groups', 'danger');
+                    }
+                    this.dragged = null;
+                    this.invalidDrop = false;
+                },
+                afterRequest(event) {
+                    if (!this.reordering) {
+                        return;
+                    }
+                    this.reordering = false;
+                    if (event.detail.successful) {
+                        showToast('Reordered', 'success');
+                    } else {
+                        showToast(event.detail.xhr.responseText || 'Could not save schedule order', 'danger');
+                    }
+                },
+            }));
+        });
+    </script>
+{% endblock extra_js %}

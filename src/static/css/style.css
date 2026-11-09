@@ -32,6 +32,21 @@
     font-weight: 600;
 }
 
+/* Drag-and-drop handle for sortable rows */
+.drag-handle {
+    cursor: move;
+}
+
+/* Only show the reorder spinner while a reorder request is in flight */
+.reorder-indicator {
+    display: none;
+}
+.reorder-indicator.htmx-request {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .navbar-nav .nav-item {
