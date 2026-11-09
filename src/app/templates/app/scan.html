@@ -508,13 +508,20 @@
                         {% csrf_token %}
                         {% for field in form %}
                             <div class="mb-3">
-                                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                <label class="form-label" for="{{ field.id_for_label }}">
+                                    {{ field.label }}
+                                    {% if field.name in form.defaulted_fields %}
+                                        <span class="badge bg-warning text-dark ms-1"
+                                              title="Copied from a previous event - please check it">Default</span>
+                                    {% endif %}
+                                </label>
                                 {% if field.name == 'date' %}
                                     <div class="input-group">
-                                        {{ field }}
                                         <button type="button"
                                                 class="btn btn-primary"
-                                                onclick="setToday('{{ field.id_for_label }}')">Today</button>
+                                                onclick="setToday('{{ field.id_for_label }}')"
+                                                {% if form.today_button_disabled %}disabled{% endif %}>Today</button>
+                                        {{ field }}
                                     </div>
                                 {% else %}
                                     {{ field }}
@@ -527,6 +534,9 @@
                                 {% endfor %}
                             </div>
                         {% endfor %}
+                        {% if form.defaulted_fields %}
+                            <p class="form-text">Some values were copied from the most recent matching event. Please check/amend before saving.</p>
+                        {% endif %}
                         <button type="submit" class="btn btn-primary btn-sm">Save</button>
                         <a href="{{ planting.detail_url }}" class="btn btn-secondary btn-sm">Cancel</a>
                     </form>

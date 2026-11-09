@@ -21,7 +21,7 @@ def planting_event_create(request, pk):
     """
     planting = get_object_or_404(Planting, pk=pk)
     if request.method == 'POST':
-        form = PlantingEventForm(request.POST)
+        form = PlantingEventForm(request.POST, planting=planting)
         if form.is_valid():
             event = form.save(commit=False)
             event.planting = planting
@@ -29,7 +29,7 @@ def planting_event_create(request, pk):
             planting.mark_scanned()
             return render_scan_result(request, planting)
     else:
-        form = PlantingEventForm()
+        form = PlantingEventForm(planting=planting)
     return render(
         request,
         'app/scan.html#planting-event-form',

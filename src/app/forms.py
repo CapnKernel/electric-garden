@@ -1,6 +1,7 @@
 from typing import ClassVar
 
 from django import forms
+from django.utils import timezone
 
 from .models import PlantingEvent
 
@@ -60,9 +61,52 @@ class PlantingEventForm(forms.ModelForm):
             'notes': forms.Textarea(attrs={'rows': 3}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, planting=None, **kwargs):
         super().__init__(*args, **kwargs)
         for name, css_class in self.widget_classes:
             widget = self.fields[name].widget
             existing = widget.attrs.get('class', '')
             widget.attrs['class'] = f'{existing} {css_class}'.strip()
+        # Set when the calculated date default is today, so the template can
+        # disable the "Today" button (it would be a no-op).
+        self.today_button_disabled = False
+        # Fields pre-filled from a previous event, so the template can flag them
+        # and prompt the user to check the values.
+        self.defaulted_fields = set()
+        if planting is not None and self.instance.pk is None and not self.is_bound:
+            self._apply_defaults(planting)
+
+    def _apply_defaults(self, planting):
+        """Pre-fill a new event from existing planting events.
+
+        The event type follows the planting's progress: an existing germinated
+        event means the next event is likely a transplant, an existing planted
+        event means germination, and a planting with no events is being planted.
+        A planting with only other event types gets no default.  Date, container
+        and location are copied from the most recent event of the default type
+        across all plantings, if there is one.
+        """
+        event_type = self._default_event_type(planting)
+        if event_type is None:
+            return
+        self.initial['event_type'] = event_type
+        event = PlantingEvent.objects.filter(event_type=event_type).order_by('-date', '-pk').first()
+        if event is None:
+            return
+        self.initial['date'] = event.date
+        self.initial['planted_in'] = event.planted_in_id
+        self.initial['location'] = event.location
+        self.defaulted_fields = {'date', 'planted_in', 'location'}
+        self.today_button_disabled = event.date == timezone.localdate()
+
+    @staticmethod
+    def _default_event_type(planting):
+        """Return the event type to default to for a new event, or ``None``."""
+        event_types = set(planting.events.values_list('event_type', flat=True))
+        if PlantingEvent.EventType.GERMINATED in event_types:
+            return PlantingEvent.EventType.TRANSPLANTED
+        if PlantingEvent.EventType.PLANTED in event_types:
+            return PlantingEvent.EventType.GERMINATED
+        if not event_types:
+            return PlantingEvent.EventType.PLANTED
+        return None
