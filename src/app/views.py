@@ -1,7 +1,7 @@
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
 from .models import Container, Packet, Plant, Planting, PlantingSchedule
 
@@ -63,18 +63,20 @@ def plant_now(request):
 def _schedule_context():
     """Context for the schedule page and its HTMX fragment."""
     return {
-        'schedules': PlantingSchedule.objects.select_related('plant'),
+        'schedules': PlantingSchedule.objects.select_related('plant').order_by(
+            '-active', '-priority', 'start_week', 'plant_id'
+        ),
         'add_url': reverse('admin:app_plantingschedule_add'),
     }
 
 
 @require_GET
 def schedule_list(request):
-    """List every planting schedule, in default order.
+    """List every planting schedule, active first.
 
-    The model's default ordering applies: priority (highest first), then plant,
-    then start week.  Inactive schedules and schedules for deleted plants are
-    included so they can be reviewed.
+    Within the active/inactive groups the order is priority (highest first),
+    then plant, then start week.  Inactive schedules and schedules for deleted
+    plants are included so they can be reviewed.
     """
     return render(request, 'app/schedule.html', _schedule_context())
 
@@ -82,4 +84,13 @@ def schedule_list(request):
 @require_GET
 def schedule_contents(request):
     """HTMX endpoint returning the schedule table fragment."""
+    return render(request, 'app/schedule.html#schedule-contents', _schedule_context())
+
+
+@require_POST
+def schedule_toggle(request, pk):
+    """Toggle a planting schedule's active state and return the updated list."""
+    schedule = get_object_or_404(PlantingSchedule, pk=pk)
+    schedule.active = not schedule.active
+    schedule.save(update_fields=['active'])
     return render(request, 'app/schedule.html#schedule-contents', _schedule_context())

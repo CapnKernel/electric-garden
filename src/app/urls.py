@@ -20,6 +20,7 @@ urlpatterns = [
     path('partials/plant-now/', views.plant_now, name='plant_now'),
     path('partials/schedule/', views.schedule_contents, name='schedule_contents'),
     path('schedule/', views.schedule_list, name='schedule'),
+    path('schedule/<int:pk>/toggle-active/', views.schedule_toggle, name='schedule_toggle'),
     # HTMX endpoint returning Django messages as an OOB-swappable partial.
     path(
         'partials/messages/',

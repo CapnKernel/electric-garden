@@ -24,7 +24,9 @@
 {% endblock h1 %}
 
 {% block body %}
-    <div hx-get="{% url 'app:schedule_contents' %}" hx-trigger="load">
+    <div id="schedule-contents"
+         hx-get="{% url 'app:schedule_contents' %}"
+         hx-trigger="load">
         {% partialdef schedule-contents inline %}
             <div class="d-flex align-items-center gap-2 mb-3">
                 <a class="btn btn-sm btn-primary" href="{{ add_url }}">Add schedule</a>
@@ -58,11 +60,14 @@
                                     <td>{{ schedule.label }}</td>
                                     <td class="text-muted">{{ schedule.month_hint }}</td>
                                     <td>
-                                        {% if schedule.active %}
-                                            <span class="badge text-bg-success">active</span>
-                                        {% else %}
-                                            <span class="badge text-bg-secondary">inactive</span>
-                                        {% endif %}
+                                        <button type="button"
+                                                class="badge border-0 {% if schedule.active %}text-bg-success{% else %}text-bg-secondary{% endif %}"
+                                                hx-post="{% url 'app:schedule_toggle' schedule.pk %}"
+                                                hx-target="#schedule-contents"
+                                                hx-swap="innerHTML"
+                                                title="Click to {% if schedule.active %}deactivate{% else %}activate{% endif %}">
+                                            {% if schedule.active %}active{% else %}inactive{% endif %}
+                                        </button>
                                     </td>
                                     <td>{{ schedule.notes }}</td>
                                     <td>

@@ -400,13 +400,21 @@ def test_schedule_list_includes_inactive_and_deleted_plant_schedules(authed_clie
 
 def test_schedule_list_orders_by_priority_then_plant(authed_client, plant):
     other = Plant.objects.create(id=2, code='CB', name='Cabbage')
-    make_schedule(plant, 45, 48, priority=1)
-    make_schedule(other, 40, 44, priority=10)
+    beetroot_schedule = make_schedule(plant, 45, 48, priority=1)
+    cabbage_schedule = make_schedule(other, 40, 44, priority=10)
 
     response = authed_client.get(reverse('app:schedule'))
 
-    content = response.content.decode()
-    assert content.index('Cabbage') < content.index('Beetroot')
+    assert list(response.context['schedules']) == [cabbage_schedule, beetroot_schedule]
+
+
+def test_schedule_list_orders_active_before_inactive(authed_client, plant):
+    active = make_schedule(plant, 40, 44, priority=1)
+    inactive = make_schedule(plant, 45, 48, priority=10, active=False)
+
+    response = authed_client.get(reverse('app:schedule'))
+
+    assert list(response.context['schedules']) == [active, inactive]
 
 
 def test_schedule_list_links_to_admin(authed_client, plant):
@@ -425,13 +433,68 @@ def test_schedule_page_loads_contents_with_htmx(authed_client, plant):
     assertContains(response, 'hx-trigger="load"')
 
 
-def test_schedule_contents_partial_lists_schedules(authed_client, plant):
+def test_schedule_contents_returns_schedules(authed_client, plant):
+    schedule = make_schedule(plant, 45, 48)
+
+    response = authed_client.get(reverse('app:schedule_contents'))
+
+    assert list(response.context['schedules']) == [schedule]
+
+
+def test_schedule_contents_renders_only_the_partial(authed_client, plant):
     make_schedule(plant, 45, 48)
 
     response = authed_client.get(reverse('app:schedule_contents'))
 
     assertContains(response, 'Beetroot')
     assertNotContains(response, '<html')
+
+
+def test_schedule_page_renders_toggle_button(authed_client, plant):
+    schedule = make_schedule(plant, 45, 48)
+
+    response = authed_client.get(reverse('app:schedule'))
+
+    assertContains(response, f'hx-post="{reverse("app:schedule_toggle", args=[schedule.pk])}"')
+
+
+def test_schedule_toggle_deactivates_schedule(authed_client, plant):
+    schedule = make_schedule(plant, 45, 48)
+
+    response = authed_client.post(reverse('app:schedule_toggle', args=[schedule.pk]))
+
+    schedule.refresh_from_db()
+    assert schedule.active is False
+    assertContains(response, 'text-bg-secondary')
+
+
+def test_schedule_toggle_activates_schedule(authed_client, plant):
+    schedule = make_schedule(plant, 45, 48, active=False)
+
+    response = authed_client.post(reverse('app:schedule_toggle', args=[schedule.pk]))
+
+    schedule.refresh_from_db()
+    assert schedule.active is True
+    assertContains(response, 'text-bg-success')
+
+
+def test_schedule_toggle_returns_resorted_list(authed_client, plant):
+    toggled = make_schedule(plant, 40, 44, priority=1)
+    inactive = make_schedule(plant, 45, 48, priority=10, active=False)
+
+    response = authed_client.post(reverse('app:schedule_toggle', args=[toggled.pk]))
+
+    toggled.refresh_from_db()
+    assert toggled.active is False
+    assert list(response.context['schedules']) == [inactive, toggled]
+
+
+def test_schedule_toggle_requires_post(authed_client, plant):
+    schedule = make_schedule(plant, 45, 48)
+
+    response = authed_client.get(reverse('app:schedule_toggle', args=[schedule.pk]))
+
+    assert response.status_code == 405
 
 
 # --- admin -------------------------------------------------------------------
