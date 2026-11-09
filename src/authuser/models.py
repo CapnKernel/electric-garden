@@ -1,5 +1,5 @@
-from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, UserManager
+from django.db import models
 from django.utils import timezone
 
 # Replace this whole dir with this: https://github.com/sesh/django-authuser
@@ -60,7 +60,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     USERNAME_FIELD = 'email'
     EMAIL_FIELD = 'email'
-    REQUIRED_FIELDS = []
+    REQUIRED_FIELDS = ()
 
     class Meta:
         verbose_name = 'User'

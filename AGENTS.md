@@ -55,6 +55,7 @@ Do not offer to run all tests unless asked.
   This will expand to multiple versions, so it can't be used directly.
 - Line length 119; single quotes for internal strings.
 - `djlint` is used for Django template linting.
+- Write any model declaration line that would trigger `RUF012` as a tuple rather than a mutable type.
 - VSCode is configured to use ruff as the Python formatter (see
   `.vscode/settings.json`, which is gitignored/local-only).
 

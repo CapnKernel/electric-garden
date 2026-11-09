@@ -131,7 +131,7 @@ class Container(BarcodedBase):
     class Meta:
         # Newest first, so container dropdowns list the most recent containers
         # at the top.
-        ordering = ['-pk']
+        ordering = ('-pk',)
 
     @property
     def label(self):
@@ -344,15 +344,15 @@ class PlantingEvent(models.Model):
     notes = models.TextField(null=True, blank=True)  # Example: "From Kath's seedling box"
 
     class Meta:
-        ordering = ['date', 'pk']
-        constraints = [
+        ordering = ('date', 'pk')
+        constraints = (
             # A planting is planted once; later moves are transplant events.
             models.UniqueConstraint(
                 fields=['planting'],
                 condition=models.Q(event_type='planted'),
                 name='unique_planted_event_per_planting',
             ),
-        ]
+        )
 
     @property
     def verbose_name(self):

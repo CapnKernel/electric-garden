@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from django import forms
 
 from .models import PlantingEvent
@@ -38,18 +40,18 @@ class PlantingEventForm(forms.ModelForm):
     """Form for editing a single planting event."""
 
     # CSS classes applied to each field's widget in ``__init__``.
-    widget_classes = {
-        'event_type': 'form-select',
-        'date': 'form-control datepicker',
-        'planted_in': 'form-select',
-        'location': 'form-control',
-        'notes': 'form-control',
-    }
+    widget_classes = (
+        ('event_type', 'form-select'),
+        ('date', 'form-control datepicker'),
+        ('planted_in', 'form-select'),
+        ('location', 'form-control'),
+        ('notes', 'form-control'),
+    )
 
     class Meta:
         model = PlantingEvent
         fields = ('event_type', 'date', 'planted_in', 'location', 'notes')
-        widgets = {
+        widgets: ClassVar = {
             # A text input enhanced by Flatpickr (see ``static/js/datepicker.js``).
             # ``format`` must be ISO-8601 so the underlying value is unambiguous;
             # Flatpickr displays it as ``d-mmm-yy`` via its ``altFormat``.  The
@@ -60,7 +62,7 @@ class PlantingEventForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for name, css_class in self.widget_classes.items():
+        for name, css_class in self.widget_classes:
             widget = self.fields[name].widget
             existing = widget.attrs.get('class', '')
             widget.attrs['class'] = f'{existing} {css_class}'.strip()
