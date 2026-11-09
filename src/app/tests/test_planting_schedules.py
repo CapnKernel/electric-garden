@@ -417,13 +417,16 @@ def test_schedule_list_orders_active_before_inactive(authed_client, plant):
     assert list(response.context['schedules']) == [active, inactive]
 
 
-def test_schedule_list_links_to_admin(authed_client, plant):
+def test_schedule_list_links_to_admin_and_plant(authed_client, plant):
     schedule = make_schedule(plant, 45, 48)
 
     response = authed_client.get(reverse('app:schedule'))
 
     assertContains(response, reverse('admin:app_plantingschedule_add'))
     assertContains(response, reverse('admin:app_plantingschedule_change', args=[schedule.pk]))
+    assertContains(response, f'href="{plant.detail_url}"')
+    assertContains(response, '>Plant</a>')
+    assertContains(response, '>Admin</a>')
 
 
 def test_schedule_page_loads_contents_with_htmx(authed_client, plant):

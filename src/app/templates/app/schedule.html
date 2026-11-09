@@ -90,8 +90,9 @@
                                         </button>
                                     </td>
                                     <td>{{ schedule.notes }}</td>
-                                    <td>
-                                        <a href="{% url 'admin:app_plantingschedule_change' schedule.pk %}">Edit</a>
+                                    <td class="text-nowrap">
+                                        <a href="{% url 'app:plant_detail' schedule.plant.pk %}">Plant</a>
+                                        <a href="{% url 'admin:app_plantingschedule_change' schedule.pk %}">Admin</a>
                                     </td>
                                 </tr>
                             {% endfor %}
