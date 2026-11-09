@@ -203,6 +203,11 @@ class Plant(BarcodedBase):
     def __str__(self):
         return f'{self.barcode}: {self.name}'
 
+    @property
+    def packets(self):
+        """Return the plant's active packets, each with a count of its plantings."""
+        return self.packet_set.filter(deleted=False).annotate(planting_count=models.Count('planting')).order_by('pk')
+
 
 class Packet(BarcodedBase):
     barcode_start = 100

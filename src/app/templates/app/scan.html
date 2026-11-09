@@ -95,6 +95,8 @@
                     {% partial scan-planting %}
                 {% elif obj.verbose_name == 'packet' %}
                     {% partial scan-packet-plantings %}
+                {% elif obj.verbose_name == 'plant' %}
+                    {% partial scan-plant-packets %}
                 {% endif %}
             {% elif search_results %}
                 {% partial search-results %}
@@ -155,6 +157,47 @@
             </tr>
         {% endif %}
     {% endpartialdef scan-plant %}
+
+    {# Packets for a scanned Plant, with a count of plantings for each.  Expects ``obj`` to be a Plant. #}
+    {% partialdef scan-plant-packets %}
+        {% with packets=obj.packets %}
+            {% if packets %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        {% card_title %}Packets{% endcard_title %}
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Barcode</th>
+                                        <th>Brand</th>
+                                        <th>Full name</th>
+                                        <th>Expiry</th>
+                                        <th>Plantings</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for packet in packets %}
+                                        <tr>
+                                            <td>
+                                                <a href="{{ packet.detail_url }}">{{ packet.barcode }}</a>
+                                            </td>
+                                            <td>{{ packet.brand|default:"" }}</td>
+                                            <td>{{ packet.full_name|default:"" }}</td>
+                                            <td>{{ packet.expiry|default:"" }}</td>
+                                            <td>{{ packet.planting_count }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        {% endwith %}
+    {% endpartialdef scan-plant-packets %}
 
     {# Detail rows for a scanned Packet.  Expects ``obj`` to be a Packet. #}
     {% partialdef scan-packet %}

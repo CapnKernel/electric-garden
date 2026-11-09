@@ -475,3 +475,28 @@ class TestDetailViews:
 
         obj.refresh_from_db()
         assert obj.last_scanned_at is None
+
+
+class TestPlantPackets:
+    """The plant detail page lists the plant's packets and their planting counts."""
+
+    def test_lists_packets_with_planting_counts(self, authed_client, plant, packet):
+        other_packet = Packet.objects.create(id=102, plant=plant, full_name='Marketmore')
+        Planting.objects.create(id=1001, packet=packet)
+        Planting.objects.create(id=1002, packet=packet)
+        Planting.objects.create(id=1003, packet=other_packet)
+
+        response = authed_client.get(plant.detail_url)
+
+        assertContains(response, 'Packets')
+        assertContains(response, packet.barcode)
+        assertContains(response, other_packet.barcode)
+        assertContains(response, '<td>2</td>', html=True)
+        assertContains(response, '<td>1</td>', html=True)
+
+    def test_excludes_deleted_packets(self, authed_client, plant):
+        deleted_packet = Packet.objects.create(id=103, plant=plant, deleted=True)
+
+        response = authed_client.get(plant.detail_url)
+
+        assertNotContains(response, deleted_packet.barcode)
