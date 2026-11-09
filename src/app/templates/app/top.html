@@ -71,6 +71,66 @@
         {% endpartialdef dash-stats-cards %}
         {% partial dash-stats-cards %}
     </div>
+
+    <div class="row mt-4"
+         hx-get="{% url 'app:plant_now' %}"
+         hx-trigger="load">
+        {% partialdef plant-now %}
+            <div class="col-12">
+                <h2 class="h4">Plant this week</h2>
+                {% if due_rows or planted_rows or overdue_rows %}
+                    <p class="text-muted">ISO week {{ week }}</p>
+                    {% if due_rows %}
+                        <h3 class="h6">Plant now</h3>
+                        <ul class="list-group mb-3">
+                            {% for row in due_rows %}
+                                <li class="list-group-item">
+                                    <strong>{{ row.schedule.plant.name }}</strong>
+                                    — {{ row.schedule.label }}
+                                    <span class="text-muted">({{ row.schedule.month_hint }})</span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                    {% if overdue_rows %}
+                        <h3 class="h6">Overdue</h3>
+                        <ul class="list-group mb-3">
+                            {% for row in overdue_rows %}
+                                <li class="list-group-item">
+                                    <strong>{{ row.schedule.plant.name }}</strong>
+                                    — {{ row.schedule.label }}
+                                    <span class="text-muted">({{ row.schedule.month_hint }})</span>
+                                    {% if row.due %}
+                                        <span class="badge text-bg-danger">since {{ row.due|date:"j M" }}</span>
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                    {% if planted_rows %}
+                        <h3 class="h6">Already planted</h3>
+                        <ul class="list-group">
+                            {% for row in planted_rows %}
+                                <li class="list-group-item">
+                                    <strong>{{ row.schedule.plant.name }}</strong>
+                                    — {{ row.schedule.label }}
+                                    <span class="text-muted">({{ row.schedule.month_hint }})</span>
+                                    {% if row.due %}
+                                        <span class="badge text-bg-secondary">next {{ row.due|date:"j M" }}</span>
+                                    {% elif row.last %}
+                                        <span class="badge text-bg-secondary">planted {{ row.last|date:"j M" }}</span>
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                {% else %}
+                    <p class="text-muted">Nothing to plant in ISO week {{ week }}.</p>
+                {% endif %}
+            </div>
+        {% endpartialdef %}
+        {% partial plant-now %}
+    </div>
 {% endblock body %}
 
 {% block extra_js %}

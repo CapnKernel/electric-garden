@@ -15,7 +15,7 @@ def garden_data(db):
     Plant.objects.create(id=3, code='XX', name='Beetroot gone', deleted=True)
 
     packet = Packet.objects.create(
-        id=101, plant=plant, brand="Mr Fothergill's", full_name='Boltardy', notes='Sow in full sun'
+        id=101, plant=plant, brand="Mr Fothergill's", full_name='Boltardy', notes='Plant in full sun'
     )
     Packet.objects.create(id=102, plant=carrot, full_name='Nantes', notes='Keep moist')
     Packet.objects.create(id=103, plant=plant, full_name='Boltardy gone', deleted=True)

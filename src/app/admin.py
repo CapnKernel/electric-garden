@@ -1,9 +1,11 @@
+from django import forms
 from django.contrib import admin
+from django.contrib.admin.widgets import AdminDateWidget
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.utils.html import format_html
 
-from .models import Container, Packet, Plant, Planting, PlantingEvent
+from .models import Container, Packet, Plant, Planting, PlantingEvent, PlantingSchedule
 
 
 class BarcodeIdAdminMixin:
@@ -68,9 +70,105 @@ class ContainerAdmin(BarcodeIdAdminMixin, admin.ModelAdmin):
     inlines = (PacketInline, ContainerPlantingEventInline)
 
 
+class PlantingScheduleForm(forms.ModelForm):
+    """Admin form that accepts either ISO week numbers or a date.
+
+    The date inputs use the admin's calendar picker.  A picked date is only a
+    convenience: its ISO week number is stored, so the year is discarded and the
+    schedule repeats annually.
+    """
+
+    start_date = forms.DateField(
+        required=False,
+        widget=AdminDateWidget,
+        help_text='Optional: pick any date in the week; its ISO week number is filled in on save.',
+    )
+    end_date = forms.DateField(
+        required=False,
+        widget=AdminDateWidget,
+        help_text='Optional: pick any date in the week; its ISO week number is filled in on save.',
+    )
+
+    class Meta:
+        model = PlantingSchedule
+        fields = ('plant', 'priority', 'start_week', 'end_week', 'repeat_every_weeks', 'notes', 'active')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Either a week number or a date may supply each end, so the week
+        # numbers are optional here and validated together in ``clean``.
+        self.fields['start_week'].required = False
+        self.fields['end_week'].required = False
+
+    def clean(self):
+        """Resolve picked dates to ISO weeks, then require both weeks to be known.
+
+        A picked date wins over a week number typed alongside it.
+        """
+        cleaned = super().clean()
+        for prefix, label in (('start', 'start week'), ('end', 'end week')):
+            day = cleaned.get(f'{prefix}_date')
+            if day is not None:
+                cleaned[f'{prefix}_week'] = day.isocalendar().week
+            if cleaned.get(f'{prefix}_week') is None:
+                self.add_error(f'{prefix}_week', f'Enter a {label} number or pick a date.')
+        return cleaned
+
+
+class PlantingScheduleInline(admin.TabularInline):
+    """Planting schedules on the plant's page."""
+
+    model = PlantingSchedule
+    form = PlantingScheduleForm
+    extra = 0
+    fields = (
+        'priority',
+        'start_week',
+        'start_date',
+        'end_week',
+        'end_date',
+        'repeat_every_weeks',
+        'notes',
+        'active',
+    )
+
+
 @admin.register(Plant)
 class PlantAdmin(BarcodeIdAdminMixin, admin.ModelAdmin):
-    list_display = ('barcode', 'code', 'name', 'deleted', 'scan_link')
+    list_display = ('barcode', 'code', 'name', 'plant_weeks_str', 'deleted', 'scan_link')
+    search_fields = ('name', 'code')
+    inlines = (PlantingScheduleInline,)
+
+
+@admin.register(PlantingSchedule)
+class PlantingScheduleAdmin(admin.ModelAdmin):
+    """Cross-plant view of planting schedules, with bulk activation."""
+
+    form = PlantingScheduleForm
+    fields = (
+        'plant',
+        'priority',
+        'start_week',
+        'start_date',
+        'end_week',
+        'end_date',
+        'repeat_every_weeks',
+        'notes',
+        'active',
+    )
+    list_display = ('plant', 'priority', 'start_week', 'end_week', 'repeat_every_weeks', 'active', 'notes')
+    list_filter = ('active', 'plant')
+    search_fields = ('plant__name', 'plant__code')
+    autocomplete_fields = ('plant',)
+    actions = ('activate', 'deactivate')
+
+    @admin.action(description='Activate selected planting schedules')
+    def activate(self, request, queryset):
+        queryset.update(active=True)
+
+    @admin.action(description='Deactivate selected planting schedules')
+    def deactivate(self, request, queryset):
+        queryset.update(active=False)
 
 
 @admin.register(Packet)
