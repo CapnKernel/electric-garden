@@ -5,6 +5,7 @@ from . import views, wizard  # noqa: F401 - wizard is used by the commented-out 
 from .models import Container, Packet, Plant, Planting
 from .planting import (
     container_germination,
+    planting_create,
     planting_event_create,
     planting_event_delete,
     planting_event_edit,
@@ -34,6 +35,7 @@ urlpatterns = [
     # Detail pages: the canonical URL for each scannable object.
     path('plant/<int:pk>/', lambda request, pk: render_detail(request, Plant, pk), name='plant_detail'),
     path('packet/<int:pk>/', lambda request, pk: render_detail(request, Packet, pk), name='packet_detail'),
+    path('planting/new/', planting_create, name='planting_create'),
     path('planting/<int:pk>/', lambda request, pk: render_detail(request, Planting, pk), name='planting_detail'),
     path('container/<int:pk>/', lambda request, pk: render_detail(request, Container, pk), name='container_detail'),
     path('planting/<int:pk>/germination/', planting_germination, name='planting_germination'),

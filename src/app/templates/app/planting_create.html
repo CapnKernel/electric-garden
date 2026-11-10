@@ -1,0 +1,83 @@
+{% extends "app/base.html" %}
+
+{% load navtag %}
+{% load app_tags %}
+
+{% block title %}
+    New planting
+{% endblock title %}
+
+{% block nav %}
+    {% nav "scan" %}
+    {{ block.super }}
+{% endblock nav %}
+
+{% block breadcrumbs %}
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{% url 'app:top' %}">Dashboard</a>
+            </li>
+            {% if packet %}
+                <li class="breadcrumb-item">
+                    <a href="{{ packet.detail_url }}">{{ packet.barcode }} {{ packet.label }}</a>
+                </li>
+            {% endif %}
+            <li class="breadcrumb-item active" aria-current="page">New planting</li>
+        </ol>
+    </nav>
+{% endblock breadcrumbs %}
+
+{% block h1 %}
+    New planting
+{% endblock h1 %}
+
+{% block body %}
+    <div class="card mb-4">
+        <div class="card-header">
+            {% card_title %}
+                {% if packet %}
+                    New planting of {{ packet.label }}
+                {% else %}
+                    New planting
+                {% endif %}
+            {% endcard_title %}
+        </div>
+        <div class="card-body">
+            {# An empty action posts back to this URL, keeping a ``?packet=`` argument. #}
+            <form method="post" action="">
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>
+                {% endif %}
+                {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {% if field.name == 'date' %}
+                            <div class="input-group">
+                                <button type="button"
+                                        class="btn btn-primary"
+                                        onclick="setToday('{{ field.id_for_label }}')">Today</button>
+                                {{ field }}
+                            </div>
+                        {% else %}
+                            {{ field }}
+                        {% endif %}
+                        {% if field.help_text %}
+                            <div class="form-text">{{ field.help_text }}</div>
+                        {% endif %}
+                        {% for error in field.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+                <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                {% if packet %}
+                    <a href="{{ packet.detail_url }}" class="btn btn-secondary btn-sm">Cancel</a>
+                {% else %}
+                    <a href="{% url 'app:scan' %}" class="btn btn-secondary btn-sm">Cancel</a>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+{% endblock body %}

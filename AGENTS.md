@@ -60,6 +60,7 @@ Do not offer to run all tests unless asked.
   `.vscode/settings.json`, which is gitignored/local-only).
 - This is a Django 6 project, so partials are available and expected.
 - Use the htmx paradigm where possible.  Use alpine.js if it would be useful.
+- If a helper function is only used by one other function, nest the helper within the caller.
 
 ## Important
 

@@ -252,12 +252,14 @@
     {# Plantings table for a scanned Packet.  Expects ``obj`` to be a Packet. #}
     {% partialdef scan-packet-plantings %}
         {% with plantings=obj.plantings %}
-            {% if plantings %}
-                <div class="card mb-4">
-                    <div class="card-header">
-                        {% card_title %}Plantings{% endcard_title %}
-                    </div>
-                    <div class="card-body">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    {% card_title %}Plantings{% endcard_title %}
+                    <a href="{% url 'app:planting_create' %}?packet={{ obj.pk }}"
+                       class="btn btn-primary btn-sm">New planting</a>
+                </div>
+                <div class="card-body">
+                    {% if plantings %}
                         <div class="table-responsive">
                             <table class="table table-sm table-striped table-hover mb-0">
                                 <thead>
@@ -288,9 +290,11 @@
                                 </tbody>
                             </table>
                         </div>
-                    </div>
+                    {% else %}
+                        <p class="text-muted mb-0">No plantings yet.</p>
+                    {% endif %}
                 </div>
-            {% endif %}
+            </div>
         {% endwith %}
     {% endpartialdef scan-packet-plantings %}
 

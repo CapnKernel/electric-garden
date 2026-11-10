@@ -8,9 +8,44 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django_htmx.http import HttpResponseClientRedirect
 
-from .forms import GerminationRowForm, PlantingEventForm
-from .models import Container, Planting, PlantingEvent
+from .forms import GerminationRowForm, PlantingCreateForm, PlantingEventForm
+from .models import Container, Packet, Planting, PlantingEvent
 from .scan import render_scan_result
+
+
+def planting_create(request):
+    """Create a planting together with its first ``planted`` event.
+
+    GET renders the form; a ``?packet=`` argument fixes the packet select to that
+    packet.  POST creates both records in one transaction and redirects to the
+    new planting's detail page.
+    """
+
+    def locked_packet():
+        """Return the packet named by a ``?packet=`` GET argument, or ``None``."""
+        packet_id = request.GET.get('packet')
+        if not packet_id:
+            return None
+        return get_object_or_404(Packet, pk=packet_id)
+
+    packet = locked_packet()
+    if request.method == 'POST':
+        form = PlantingCreateForm(request.POST, packet=packet)
+        if form.is_valid():
+            with transaction.atomic():
+                planting = form.save()
+                PlantingEvent.objects.create(
+                    planting=planting,
+                    event_type=PlantingEvent.EventType.PLANTED,
+                    date=form.cleaned_data['date'],
+                    planted_in=form.cleaned_data['planted_in'],
+                    location=form.cleaned_data['location'],
+                    notes=form.cleaned_data['notes'],
+                )
+            return redirect(planting.detail_url)
+    else:
+        form = PlantingCreateForm(packet=packet)
+    return render(request, 'app/planting_create.html', {'form': form, 'packet': packet})
 
 
 def planting_event_create(request, pk):

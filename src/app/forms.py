@@ -3,7 +3,7 @@ from typing import ClassVar
 from django import forms
 from django.utils import timezone
 
-from .models import PlantingEvent
+from .models import Container, Packet, Planting, PlantingEvent
 
 
 class GerminationRowForm(forms.Form):
@@ -110,3 +110,54 @@ class PlantingEventForm(forms.ModelForm):
         if not event_types:
             return PlantingEvent.EventType.PLANTED
         return None
+
+
+class PlantingCreateForm(forms.ModelForm):
+    """Form for creating a planting and its initial ``planted`` event.
+
+    The planting itself only needs a packet; the remaining fields describe the
+    accompanying event.  When ``packet`` is passed in (from a ``?packet=`` GET
+    argument) the packet select is fixed to it and disabled, so the planting
+    cannot be created against a different packet.
+    """
+
+    widget_classes = (
+        ('packet', 'form-select'),
+        ('date', 'form-control datepicker'),
+        ('planted_in', 'form-select'),
+        ('location', 'form-control'),
+        ('notes', 'form-control'),
+    )
+
+    date = forms.DateField(
+        label='Date planted',
+        initial=timezone.localdate,
+        # A text input enhanced by Flatpickr (see ``static/js/datepicker.js``).
+        widget=forms.DateInput(attrs={'autocomplete': 'off'}, format='%Y-%m-%d'),
+    )
+    planted_in = forms.ModelChoiceField(
+        queryset=Container.objects.order_by('name'),
+        required=False,
+    )
+    location = forms.CharField(max_length=100, required=False)
+    notes = forms.CharField(required=False, widget=forms.Textarea(attrs={'rows': 3}))
+
+    class Meta:
+        model = Planting
+        fields = ('packet',)
+
+    def __init__(self, *args, packet=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.locked_packet = packet
+        if packet is not None:
+            # Keep the locked packet in the queryset: a disabled select is
+            # validated against it, and the packet may since have been deleted.
+            self.fields['packet'].queryset = Packet.objects.filter(pk=packet.pk)
+            self.fields['packet'].initial = packet.pk
+            self.fields['packet'].disabled = True
+        else:
+            self.fields['packet'].queryset = Packet.objects.filter(deleted=False).select_related('plant')
+        for name, css_class in self.widget_classes:
+            widget = self.fields[name].widget
+            existing = widget.attrs.get('class', '')
+            widget.attrs['class'] = f'{existing} {css_class}'.strip()
