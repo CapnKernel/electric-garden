@@ -88,6 +88,10 @@
                                     <strong>{{ row.schedule.plant.name }}</strong>
                                     — {{ row.schedule.label }}
                                     <span class="text-muted">({{ row.schedule.month_hint }})</span>
+                                    <span class="ms-2 text-nowrap">
+                                        <a href="{% url 'app:plant_detail' row.schedule.plant.pk %}">Plant</a>
+                                        <a href="{% url 'admin:app_plantingschedule_change' row.schedule.pk %}">Admin</a>
+                                    </span>
                                 </li>
                             {% endfor %}
                         </ul>
@@ -103,6 +107,10 @@
                                     {% if row.due %}
                                         <span class="badge text-bg-danger">since {{ row.due|date:"j M" }}</span>
                                     {% endif %}
+                                    <span class="ms-2 text-nowrap">
+                                        <a href="{% url 'app:plant_detail' row.schedule.plant.pk %}">Plant</a>
+                                        <a href="{% url 'admin:app_plantingschedule_change' row.schedule.pk %}">Admin</a>
+                                    </span>
                                 </li>
                             {% endfor %}
                         </ul>
@@ -120,6 +128,10 @@
                                     {% elif row.last %}
                                         <span class="badge text-bg-secondary">planted {{ row.last|date:"j M" }}</span>
                                     {% endif %}
+                                    <span class="ms-2 text-nowrap">
+                                        <a href="{% url 'app:plant_detail' row.schedule.plant.pk %}">Plant</a>
+                                        <a href="{% url 'admin:app_plantingschedule_change' row.schedule.pk %}">Admin</a>
+                                    </span>
                                 </li>
                             {% endfor %}
                         </ul>

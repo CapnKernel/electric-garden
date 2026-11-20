@@ -37,6 +37,7 @@
             <div class="d-flex align-items-center gap-2 mb-3">
                 <a class="btn btn-sm btn-primary" href="{{ add_url }}">Add schedule</a>
                 <span class="text-muted">All schedules, highest priority first.</span>
+                <span class="text-muted ms-auto">ISO week {{ week }}</span>
             </div>
             {% if schedules %}
                 <div class="table-responsive">
@@ -54,6 +55,7 @@
                         <tbody>
                             {% for schedule in schedules %}
                                 <tr draggable="true"
+                                    class="{% if not schedule.in_current_week %}opacity-50{% endif %}"
                                     data-id="{{ schedule.pk }}"
                                     data-active="{{ schedule.active|yesno:'1,0' }}"
                                     @dragstart="start($event)"

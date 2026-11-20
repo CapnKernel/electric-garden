@@ -68,6 +68,14 @@ def test_wrapping_schedule_excludes_other_weeks(plant, week):
     assert not PlantingSchedule.for_week(week).exists()
 
 
+def test_includes_week_handles_wrapped_window(plant):
+    schedule = make_schedule(plant, 44, 8)
+
+    assert schedule.includes_week(50)
+    assert schedule.includes_week(1)
+    assert not schedule.includes_week(20)
+
+
 def test_single_week_schedule(plant):
     schedule = make_schedule(plant, 45, 45)
 
@@ -317,6 +325,15 @@ def test_plant_now_lists_plant_once_for_overlapping_schedules(authed_client, pla
     assert response.content.decode().count('Beetroot') == 1
 
 
+def test_plant_now_links_to_plant_and_admin(authed_client, plant, frozen_today):
+    schedule = make_schedule(plant, 46, 46)
+
+    response = authed_client.get(reverse('app:plant_now'))
+
+    assertContains(response, f'href="{plant.detail_url}"')
+    assertContains(response, f'href="{reverse("admin:app_plantingschedule_change", args=[schedule.pk])}"')
+
+
 def test_plant_now_omits_deleted_plant(authed_client, plant, frozen_today):
     make_schedule(plant, 46, 46)
     other = Plant.objects.create(id=2, code='XX', name='Deleted beet', deleted=True)
@@ -384,6 +401,24 @@ def test_schedule_list_shows_every_schedule(authed_client, plant):
 
     assertContains(response, 'Beetroot')
     assertContains(response, 'Cabbage')
+
+
+def test_schedule_list_shows_current_iso_week(authed_client, frozen_today):
+    response = authed_client.get(reverse('app:schedule'))
+
+    assert response.context['week'] == TODAY.isocalendar().week
+    assertContains(response, f'ISO week {TODAY.isocalendar().week}')
+
+
+def test_schedule_list_dims_schedules_outside_current_week(authed_client, plant, frozen_today):
+    inside = make_schedule(plant, 45, 47)
+    outside = make_schedule(plant, 40, 44)
+
+    response = authed_client.get(reverse('app:schedule'))
+
+    flags = {schedule.pk: schedule.in_current_week for schedule in response.context['schedules']}
+    assert flags == {inside.pk: True, outside.pk: False}
+    assertContains(response, 'opacity-50')
 
 
 def test_schedule_list_includes_inactive_and_deleted_plant_schedules(authed_client, plant):

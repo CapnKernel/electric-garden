@@ -63,12 +63,17 @@ def plant_now(request):
 
 def _schedule_context(highlight_id=None):
     """Context for the schedule page and its HTMX fragment."""
+    week = timezone.localdate().isocalendar().week
+    schedules = list(
+        PlantingSchedule.objects.select_related('plant').order_by('-active', '-priority', 'start_week', 'plant_id')
+    )
+    for schedule in schedules:
+        schedule.in_current_week = schedule.includes_week(week)
     return {
-        'schedules': PlantingSchedule.objects.select_related('plant').order_by(
-            '-active', '-priority', 'start_week', 'plant_id'
-        ),
+        'schedules': schedules,
         'add_url': reverse('admin:app_plantingschedule_add'),
         'highlight_id': highlight_id,
+        'week': week,
     }
 
 

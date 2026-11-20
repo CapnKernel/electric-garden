@@ -326,6 +326,12 @@ class PlantingSchedule(models.Model):
         week = (day or timezone.localdate()).isocalendar().week
         return cls.for_week(week)
 
+    def includes_week(self, week):
+        """Whether this schedule's window includes ISO ``week``."""
+        if self.start_week <= self.end_week:
+            return self.start_week <= week <= self.end_week
+        return week >= self.start_week or week <= self.end_week
+
     # An ISO week number only maps to a date in a year that has that week, so
     # labels are derived from a 53-week year (2026, 2032, ...).  The month is
     # approximate: a week can straddle a month boundary, hence the "ish".
