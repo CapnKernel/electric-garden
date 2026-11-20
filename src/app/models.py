@@ -595,6 +595,35 @@ class PlantingEvent(models.Model):
         """
         return models.Q(planted_in__isnull=False) | (models.Q(location__isnull=False) & ~models.Q(location=''))
 
+    @classmethod
+    def last_location(cls):
+        """Return the free-text location recorded by the most recent event, if any.
+
+        This is the location used last time, offered as a starting point when
+        recording a new location.  Events whose location is only a container are
+        skipped: there is no free text to offer.
+        """
+        return (
+            cls.objects.exclude(location__isnull=True)
+            .exclude(location='')
+            .order_by('-date', '-pk')
+            .values_list('location', flat=True)
+            .first()
+        )
+
+    @classmethod
+    def last_planted_in(cls):
+        """Return the container used by the most recent event, if there is one.
+
+        The counterpart of ``last_location`` for the container half of a
+        location: the container used last time, offered as a starting point when
+        recording a new planting.
+        """
+        event = (
+            cls.objects.filter(planted_in__isnull=False).select_related('planted_in').order_by('-date', '-pk').first()
+        )
+        return event.planted_in if event is not None else None
+
     @property
     def has_location(self):
         """Whether this event specifies a location (a container, text, or both)."""

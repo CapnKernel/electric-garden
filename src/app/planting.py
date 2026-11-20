@@ -32,6 +32,15 @@ def planting_create(request):
     if request.method == 'POST':
         form = PlantingCreateForm(request.POST, packet=packet)
         if form.is_valid():
+            # Using the same values as last time is allowed, but confirmed: they
+            # may mean the "Copy" button was pressed without the value edited.
+            resubmitted = form.defaults_resubmitted()
+            if resubmitted and request.POST.get('confirm_defaults') != '1':
+                return render(
+                    request,
+                    'app/planting_create.html',
+                    {'form': form, 'packet': packet, 'confirm_defaults': resubmitted},
+                )
             with transaction.atomic():
                 planting = form.save()
                 PlantingEvent.objects.create(

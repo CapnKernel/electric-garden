@@ -131,7 +131,7 @@ class PlantingCreateForm(forms.ModelForm):
 
     date = forms.DateField(
         label='Date planted',
-        initial=timezone.localdate,
+        # Left empty for the user to fill in, or fill with the "Today" button.
         # A text input enhanced by Flatpickr (see ``static/js/datepicker.js``).
         widget=forms.DateInput(attrs={'autocomplete': 'off'}, format='%Y-%m-%d'),
     )
@@ -161,3 +161,37 @@ class PlantingCreateForm(forms.ModelForm):
             widget = self.fields[name].widget
             existing = widget.attrs.get('class', '')
             widget.attrs['class'] = f'{existing} {css_class}'.strip()
+        # The location recorded most recently.  It is deliberately *not* used as
+        # the field's initial values, because it would be unusual to plant
+        # something over the top of an existing planting.  Instead it is
+        # advertised in the labels as a guide, and can be copied into the fields
+        # with a button then edited.
+        self.default_planted_in = PlantingEvent.last_planted_in()
+        self.default_location = PlantingEvent.last_location()
+        if self.default_planted_in is not None:
+            self.fields['planted_in'].label = f'Planted in last: {self.default_planted_in}'
+        if self.default_location:
+            self.fields['location'].label = f'Location last: {self.default_location}'
+
+    def defaults_resubmitted(self):
+        """Return the submitted location details if they are unchanged, keyed by label.
+
+        Call after ``is_valid()``.  A location is both a container and (optionally)
+        a free-text detail, so it only counts as unchanged when *both* halves match
+        the defaults offered.  Copying a default is allowed, but the view confirms
+        it with the user, since an unchanged location may mean the buttons were
+        pressed without the values being edited.
+        """
+        if self.default_planted_in is None and not self.default_location:
+            return {}
+        if self.cleaned_data.get('planted_in') != self.default_planted_in:
+            return {}
+        location = self.cleaned_data.get('location', '').strip()
+        if location != (self.default_location or '').strip():
+            return {}
+        details = {}
+        if self.default_planted_in is not None:
+            details['Planted in'] = str(self.default_planted_in)
+        if self.default_location:
+            details['Location'] = self.default_location
+        return details

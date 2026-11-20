@@ -60,6 +60,20 @@
                                         onclick="setToday('{{ field.id_for_label }}')">Today</button>
                                 {{ field }}
                             </div>
+                        {% elif field.name == 'planted_in' and form.default_planted_in %}
+                            <div class="input-group">
+                                <button type="button"
+                                        class="btn btn-primary"
+                                        onclick="document.getElementById('{{ field.id_for_label }}').value = '{{ form.default_planted_in.pk }}'">Copy</button>
+                                {{ field }}
+                            </div>
+                        {% elif field.name == 'location' and form.default_location %}
+                            <div class="input-group">
+                                <button type="button"
+                                        class="btn btn-primary"
+                                        onclick="document.getElementById('{{ field.id_for_label }}').value = '{{ form.default_location|escapejs }}'">Copy</button>
+                                {{ field }}
+                            </div>
                         {% else %}
                             {{ field }}
                         {% endif %}
@@ -71,7 +85,20 @@
                         {% endfor %}
                     </div>
                 {% endfor %}
-                <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                {% if confirm_defaults %}
+                    <div class="alert alert-warning" role="alert">
+                        {% for label, value in confirm_defaults.items %}
+                            <p class="mb-1">{{ label }} “{{ value }}” is the same as last time.</p>
+                        {% endfor %}
+                        <p class="mb-0">
+                            Edit the fields above, or press <strong>Save anyway</strong> to plant in the same location again.
+                        </p>
+                        <input type="hidden" name="confirm_defaults" value="1">
+                    </div>
+                {% endif %}
+                <button type="submit" class="btn btn-primary btn-sm">
+                    {% if confirm_defaults %}Save anyway{% else %}Save{% endif %}
+                </button>
                 {% if packet %}
                     <a href="{{ packet.detail_url }}" class="btn btn-secondary btn-sm">Cancel</a>
                 {% else %}

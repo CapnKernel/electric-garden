@@ -2,7 +2,6 @@
 
 import pytest
 from django.urls import reverse
-from django.utils import timezone
 from pytest_django.asserts import assertContains
 
 from app.models import Container, Packet, Plant, Planting, PlantingEvent
@@ -21,6 +20,20 @@ def packet(db, plant):
 @pytest.fixture
 def container(db):
     return Container.objects.create(id=1, name='Blue ribbon 1')
+
+
+@pytest.fixture
+def last_location(db, packet, container):
+    """An earlier planting whose event supplies the default container and location."""
+    planting = Planting.objects.create(packet=packet)
+    PlantingEvent.objects.create(
+        planting=planting,
+        event_type=PlantingEvent.EventType.PLANTED,
+        date='2026-02-01',
+        planted_in=container,
+        location='Front garden parsley box',
+    )
+    return 'Front garden parsley box'
 
 
 class TestPlantingCreatePage:
@@ -61,10 +74,86 @@ class TestPlantingCreatePage:
 
         assert response.status_code == 404
 
-    def test_date_defaults_to_today(self, authed_client, db):
+    def test_date_starts_empty(self, authed_client, db):
         response = authed_client.get(reverse('app:planting_create'))
 
-        assert response.context['form'].fields['date'].initial == timezone.localdate
+        form = response.context['form']
+        assert form.fields['date'].initial is None
+        assert form['date'].value() is None
+        assertContains(response, '>Today</button>')
+
+    def test_location_starts_empty_with_the_default_named_in_the_label(self, authed_client, last_location):
+        response = authed_client.get(reverse('app:planting_create'))
+
+        form = response.context['form']
+        assert form['location'].value() is None
+        assert form.default_location == last_location
+        assertContains(response, f'Location last: {last_location}')
+        assertContains(response, '>Copy</button>')
+
+    def test_planted_in_starts_empty_with_the_default_named_in_the_label(
+        self, authed_client, container, last_location
+    ):
+        response = authed_client.get(reverse('app:planting_create'))
+
+        form = response.context['form']
+        assert form['planted_in'].value() is None
+        assert form.default_planted_in == container
+        assertContains(response, f'Planted in last: {container}')
+        assertContains(response, '>Copy</button>')
+
+    def test_no_defaults_without_prior_events(self, authed_client, packet):
+        response = authed_client.get(reverse('app:planting_create'))
+
+        form = response.context['form']
+        assert form.default_planted_in is None
+        assert form.default_location is None
+        assert form['planted_in'].label == 'Planted in'
+        assert form['location'].label == 'Location'
+        assert '>Copy</button>' not in response.content.decode()
+
+
+class TestLastLocation:
+    """``PlantingEvent.last_location`` returns the most recent free-text location."""
+
+    def test_returns_most_recent_location(self, db, packet):
+        planting = Planting.objects.create(packet=packet)
+        for date, location in (('2026-01-01', 'Old spot'), ('2026-02-01', 'New spot')):
+            PlantingEvent.objects.create(
+                planting=planting,
+                event_type=PlantingEvent.EventType.PLANTED
+                if date == '2026-01-01'
+                else PlantingEvent.EventType.TRANSPLANTED,
+                date=date,
+                location=location,
+            )
+
+        assert PlantingEvent.last_location() == 'New spot'
+
+    def test_returns_none_without_a_location(self, db):
+        assert PlantingEvent.last_location() is None
+
+    def test_last_planted_in_returns_most_recent_container(self, db, packet):
+        planting = Planting.objects.create(packet=packet)
+        first = Container.objects.create(name='First pot')
+        second = Container.objects.create(name='Second pot')
+        PlantingEvent.objects.create(
+            planting=planting,
+            event_type=PlantingEvent.EventType.PLANTED,
+            date='2026-01-01',
+            planted_in=first,
+        )
+        PlantingEvent.objects.create(
+            planting=planting,
+            event_type=PlantingEvent.EventType.TRANSPLANTED,
+            date='2026-02-01',
+            planted_in=second,
+        )
+
+        assert PlantingEvent.last_planted_in() == second
+
+    def test_last_planted_in_is_none_without_a_container(self, db):
+        assert PlantingEvent.last_planted_in() is None
 
 
 class TestPlantingCreatePost:
@@ -120,6 +209,50 @@ class TestPlantingCreatePost:
         authed_client.post(url, {'date': '2026-03-01'})
 
         assert Planting.objects.get().packet == packet
+
+    def test_unchanged_location_is_confirmed_before_saving(self, authed_client, packet, container, last_location):
+        response = authed_client.post(
+            reverse('app:planting_create'),
+            self._data(packet, container, location=last_location),
+        )
+
+        assert response.status_code == 200
+        assert response.context['confirm_defaults'] == {
+            'Planted in': str(container),
+            'Location': last_location,
+        }
+        assert Planting.objects.count() == 1
+        assert PlantingEvent.objects.count() == 1
+        assertContains(response, 'Save anyway')
+
+    def test_confirmed_location_is_saved(self, authed_client, packet, container, last_location):
+        response = authed_client.post(
+            reverse('app:planting_create'),
+            self._data(packet, container, location=last_location, confirm_defaults='1'),
+        )
+
+        assert response.status_code == 302
+        assert PlantingEvent.objects.latest('date').location == last_location
+
+    def test_same_location_in_another_container_saves_without_confirmation(
+        self, authed_client, packet, container, last_location
+    ):
+        other = Container.objects.create(name='Other pot')
+
+        response = authed_client.post(
+            reverse('app:planting_create'),
+            self._data(packet, other, location=last_location),
+        )
+
+        assert response.status_code == 302
+
+    def test_different_location_saves_without_confirmation(self, authed_client, packet, container, last_location):
+        response = authed_client.post(
+            reverse('app:planting_create'),
+            self._data(packet, container, location='Somewhere else'),
+        )
+
+        assert response.status_code == 302
 
     def test_invalid_date_rerenders_the_form(self, authed_client, packet, container):
         response = authed_client.post(
