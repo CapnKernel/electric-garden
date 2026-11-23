@@ -60,48 +60,42 @@
             {% endpartialdef messages-partial %}
         </div>
 
-        <!-- Navigation -->
-        <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-            <div class="container">
-                <a class="navbar-brand" href="{% url 'app:top' %}">Electric Garden</a>
+        <!-- Navigation.  Never collapses: the scan field is always visible. -->
+        <nav class="navbar navbar-expand navbar-dark bg-primary">
+            <div class="container flex-nowrap">
+                <a class="navbar-brand text-nowrap" href="{% url 'app:top' %}">Electric Garden</a>
                 {% block navbar %}
-                    <button class="navbar-toggler"
-                            type="button"
-                            data-bs-toggle="collapse"
-                            data-bs-target="#navbarNav">
-                        <span class="navbar-toggler-icon"></span>
-                    </button>
-                    <div class="collapse navbar-collapse" id="navbarNav">
-                        {% block nav %}
-                            {% nav text ' active' %}
-                            <ul class="navbar-nav me-auto">
-                                <li class="nav-item">
-                                    <a class="nav-link"
-                                       href="{% block item-admin-link %}{% if obj %}{{ obj.admin_url }}{% else %}{% url 'admin:index' %}{% endif %}{% endblock item-admin-link %}">Admin</a>
-                                </li>
-                            </ul>
-                        {% endblock nav %}
-                        {% block barcode_form %}
-                            {% include "app/partials/scan_input.html" %}
-                        {% endblock barcode_form %}
+                    {% block nav %}
+                        {% nav text ' active' %}
                         <ul class="navbar-nav">
-                            {% if user.is_authenticated %}
-                                <li class="nav-item">
-                                    <span class="navbar-text me-3">Welcome, {{ user.preferred_name|default:user.email }}</span>
-                                </li>
-                                <li class="nav-item">
-                                    <form method="post" action="{% url 'logout' %}" class="d-inline">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn btn-outline-light btn-sm">Logout</button>
-                                    </form>
-                                </li>
-                            {% else %}
-                                <li class="nav-item">
-                                    <a class="nav-link" href="{% url 'login' %}">Login</a>
-                                </li>
-                            {% endif %}
+                            <li class="nav-item">
+                                <a class="nav-link text-nowrap"
+                                   href="{% block item-admin-link %}{% if obj %}{{ obj.admin_url }}{% else %}{% url 'admin:index' %}{% endif %}{% endblock item-admin-link %}">Admin</a>
+                            </li>
                         </ul>
-                    </div>
+                    {% endblock nav %}
+                    {% block barcode_form %}
+                        <div class="flex-grow-1 mx-2">
+                            {% include "app/partials/scan_input.html" %}
+                        </div>
+                    {% endblock barcode_form %}
+                    <ul class="navbar-nav flex-nowrap">
+                        {% if user.is_authenticated %}
+                            <li class="nav-item d-none d-lg-block">
+                                <span class="navbar-text me-3 text-nowrap">Welcome, {{ user.preferred_name|default:user.email }}</span>
+                            </li>
+                            <li class="nav-item">
+                                <form method="post" action="{% url 'logout' %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-light btn-sm text-nowrap">Logout</button>
+                                </form>
+                            </li>
+                        {% else %}
+                            <li class="nav-item">
+                                <a class="nav-link text-nowrap" href="{% url 'login' %}">Login</a>
+                            </li>
+                        {% endif %}
+                    </ul>
                 {% endblock navbar %}
             </div>
         </nav>

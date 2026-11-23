@@ -6,7 +6,7 @@ navigation: a barcode goes to its object's detail page, anything else goes to
 the search page.  Without JavaScript the same form falls back to a plain GET of
 ``/scan/?q=``, which behaves identically.
 {% endcomment %}
-<form class="d-flex me-3"
+<form class="d-flex w-100"
       method="get"
       action="{% url 'app:scan' %}"
       hx-post="{% url 'app:scan' %}"
