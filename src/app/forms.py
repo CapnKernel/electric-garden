@@ -4,6 +4,7 @@ from django import forms
 from django.utils import timezone
 
 from .models import Container, Packet, Planting, PlantingEvent
+from .placement import Placement
 
 
 class GerminationRowForm(forms.Form):
@@ -93,11 +94,19 @@ class PlantingEventForm(forms.ModelForm):
         event = PlantingEvent.objects.filter(event_type=event_type).order_by('-date', '-pk').first()
         if event is None:
             return
+        placement = event.placement
         self.initial['date'] = event.date
-        self.initial['planted_in'] = event.planted_in_id
-        self.initial['location'] = event.location
+        self.initial['planted_in'] = placement.container.pk if placement.container is not None else None
+        self.initial['location'] = placement.text
         self.defaulted_fields = {'date', 'planted_in', 'location'}
         self.today_button_disabled = event.date == timezone.localdate()
+
+    @property
+    def placement(self):
+        """The placement the form was submitted with; valid after ``is_valid()``."""
+        if not hasattr(self, 'cleaned_data'):
+            return Placement()
+        return Placement(container=self.cleaned_data.get('planted_in'), text=self.cleaned_data.get('location'))
 
     @staticmethod
     def _default_event_type(planting):
@@ -161,37 +170,36 @@ class PlantingCreateForm(forms.ModelForm):
             widget = self.fields[name].widget
             existing = widget.attrs.get('class', '')
             widget.attrs['class'] = f'{existing} {css_class}'.strip()
-        # The location recorded most recently.  It is deliberately *not* used as
+        # The placement recorded most recently.  It is deliberately *not* used as
         # the field's initial values, because it would be unusual to plant
         # something over the top of an existing planting.  Instead it is
         # advertised in the labels as a guide, and can be copied into the fields
         # with a button then edited.
-        self.default_planted_in = PlantingEvent.last_planted_in()
-        self.default_location = PlantingEvent.last_location()
-        if self.default_planted_in is not None:
-            self.fields['planted_in'].label = f'Planted in last: {self.default_planted_in}'
-        if self.default_location:
-            self.fields['location'].label = f'Location last: {self.default_location}'
+        self.default_placement = PlantingEvent.last_placement()
+        if self.default_placement.container is not None:
+            self.fields['planted_in'].label = f'Planted in last: {self.default_placement.container}'
+        if self.default_placement.text:
+            self.fields['location'].label = f'Location last: {self.default_placement.text}'
+
+    @property
+    def placement(self):
+        """The placement the form was submitted with; valid after ``is_valid()``."""
+        if not hasattr(self, 'cleaned_data'):
+            return Placement()
+        return Placement(container=self.cleaned_data.get('planted_in'), text=self.cleaned_data.get('location'))
 
     def defaults_resubmitted(self):
-        """Return the submitted location details if they are unchanged, keyed by label.
+        """Return the submitted placement if it is unchanged, keyed by label.
 
-        Call after ``is_valid()``.  A location is both a container and (optionally)
-        a free-text detail, so it only counts as unchanged when *both* halves match
-        the defaults offered.  Copying a default is allowed, but the view confirms
-        it with the user, since an unchanged location may mean the buttons were
-        pressed without the values being edited.
+        Call after ``is_valid()``.  Copying a default is allowed, but the view
+        confirms it with the user, since an unchanged placement may mean the
+        copy button was pressed without the value being edited.
         """
-        if self.default_planted_in is None and not self.default_location:
-            return {}
-        if self.cleaned_data.get('planted_in') != self.default_planted_in:
-            return {}
-        location = self.cleaned_data.get('location', '').strip()
-        if location != (self.default_location or '').strip():
+        if self.default_placement.is_empty or self.placement != self.default_placement:
             return {}
         details = {}
-        if self.default_planted_in is not None:
-            details['Planted in'] = str(self.default_planted_in)
-        if self.default_location:
-            details['Location'] = self.default_location
+        if self.default_placement.container is not None:
+            details['Planted in'] = str(self.default_placement.container)
+        if self.default_placement.text:
+            details['Location'] = self.default_placement.text
         return details

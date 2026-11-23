@@ -1,0 +1,126 @@
+{% load app_tags %}
+{% load garden_tags %}
+
+{% include "app/partials/detail/card.html" %}
+
+{% comment %}
+The container's contents: packets stored in it and the plantings growing in it.
+A planting row lists all of that planting's events, so each planting appears
+once (see ``Container.planting_events``).
+{% endcomment %}
+{% with packets=obj.packets events=obj.planting_events %}
+    {% if packets %}
+        <div class="card mb-4">
+            <div class="card-header">
+                {% card_title %}Packets{% endcard_title %}
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Barcode</th>
+                                <th>Plant</th>
+                                <th>Brand</th>
+                                <th>Full name</th>
+                                <th>Expiry</th>
+                                <th>Last scanned</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for packet in packets %}
+                                <tr>
+                                    <td>
+                                        <a href="{{ packet.detail_url }}">{{ packet.barcode }}</a>
+                                    </td>
+                                    <td>
+                                        <a href="{{ packet.plant.detail_url }}">{{ packet.plant.name }}</a>
+                                    </td>
+                                    <td>{{ packet.brand|default:"" }}</td>
+                                    <td>{{ packet.full_name|default:"" }}</td>
+                                    <td>{{ packet.expiry|default:"" }}</td>
+                                    <td>
+                                        {% if packet.last_scanned_at %}
+                                            {{ packet.last_scanned_at|date }} ({{ packet.last_scanned_at|timesince }} ago)
+                                        {% else %}
+                                            <span class="text-muted">Never</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    {% if events %}
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                {% card_title %}Plantings{% endcard_title %}
+                <a href="{% url 'app:container_germination' pk=obj.pk %}"
+                   class="btn btn-primary btn-sm">Germination</a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Barcode</th>
+                                <th>Plant</th>
+                                <th>Packet</th>
+                                <th>Brand</th>
+                                <th>Full name</th>
+                                <th>Expiry</th>
+                                <th>Last scanned</th>
+                                <th>Events</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% regroup events by planting_id as groups %}
+                            {% for group in groups %}
+                                {% with planting=group.list.0.planting %}
+                                    <tr>
+                                        <td>
+                                            <a href="{{ planting.detail_url }}">{{ planting.barcode }}</a>
+                                        </td>
+                                        <td>
+                                            <a href="{{ planting.packet.plant.detail_url }}">{{ planting.packet.plant.name }}</a>
+                                        </td>
+                                        <td>
+                                            <a href="{{ planting.packet.detail_url }}">{{ planting.packet.barcode }}</a>
+                                        </td>
+                                        <td>{{ planting.packet.brand|default:"" }}</td>
+                                        <td>{{ planting.packet.full_name|default:"" }}</td>
+                                        <td>{{ planting.packet.expiry|default:"" }}</td>
+                                        <td>
+                                            {% if planting.last_scanned_at %}
+                                                {{ planting.last_scanned_at|date }} ({{ planting.last_scanned_at|timesince }} ago)
+                                            {% else %}
+                                                <span class="text-muted">Never</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% for event in group.list %}
+                                                <div>
+                                                    <span class="badge bg-secondary">{{ event.get_event_type_display }}</span>
+                                                    {{ event.date|friendly_date }}
+                                                    {% if not event.placement.is_empty %}
+                                                        · {% include "app/partials/placement.html" with placement=event.placement %}
+                                                    {% endif %}
+                                                </div>
+                                            {% endfor %}
+                                        </td>
+                                    </tr>
+                                {% endwith %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    {% if not packets and not events %}
+        <div class="alert alert-info" role="alert">This container is empty.</div>
+    {% endif %}
+{% endwith %}

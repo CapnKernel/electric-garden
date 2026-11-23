@@ -1,0 +1,43 @@
+{% load app_tags %}
+
+{% with rows_template="app/partials/detail/plant-rows.html" %}
+    {% include "app/partials/detail/card.html" %}
+{% endwith %}
+
+{% with packets=obj.packets %}
+    {% if packets %}
+        <div class="card mb-4">
+            <div class="card-header">
+                {% card_title %}Packets{% endcard_title %}
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Barcode</th>
+                                <th>Brand</th>
+                                <th>Full name</th>
+                                <th>Expiry</th>
+                                <th>Plantings</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for packet in packets %}
+                                <tr>
+                                    <td>
+                                        <a href="{{ packet.detail_url }}">{{ packet.barcode }}</a>
+                                    </td>
+                                    <td>{{ packet.brand|default:"" }}</td>
+                                    <td>{{ packet.full_name|default:"" }}</td>
+                                    <td>{{ packet.expiry|default:"" }}</td>
+                                    <td>{{ packet.planting_count }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% endwith %}

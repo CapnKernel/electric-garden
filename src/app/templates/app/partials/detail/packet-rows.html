@@ -1,0 +1,39 @@
+{% comment %}Packet-specific rows of the detail card.  Expects ``obj`` to be a Packet.{% endcomment %}
+<tr>
+    <th scope="row">Plant</th>
+    <td>
+        <a href="{{ obj.plant.detail_url }}">{{ obj.plant.name }}</a>
+    </td>
+</tr>
+{% if obj.placement.container %}
+    <tr>
+        <th scope="row">Container</th>
+        <td>
+            <a href="{{ obj.placement.container.detail_url }}">{{ obj.placement.container.name }}</a>
+        </td>
+    </tr>
+{% endif %}
+{% if obj.brand %}
+    <tr>
+        <th scope="row">Brand</th>
+        <td>{{ obj.brand }}</td>
+    </tr>
+{% endif %}
+{% if obj.full_name %}
+    <tr>
+        <th scope="row">Full name</th>
+        <td>{{ obj.full_name }}</td>
+    </tr>
+{% endif %}
+{% if obj.expiry %}
+    <tr>
+        <th scope="row">Expiry</th>
+        <td>{{ obj.expiry }}</td>
+    </tr>
+{% endif %}
+{% if obj.notes %}
+    <tr>
+        <th scope="row">Notes</th>
+        <td>{{ obj.notes }}</td>
+    </tr>
+{% endif %}

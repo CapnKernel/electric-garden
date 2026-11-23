@@ -1,5 +1,7 @@
 """Tests for the germination form."""
 
+from datetime import date
+
 import pytest
 from django.urls import reverse
 from django.utils import timezone
@@ -35,13 +37,66 @@ def planting(db, packet, container):
     return planting
 
 
+class TestSetGermination:
+    """``Planting.set_germination`` owns the score and its germinated event."""
+
+    def test_score_sets_field_and_event(self, planting):
+        planting.set_germination(2, day=date(2026, 3, 1))
+
+        planting.refresh_from_db()
+        assert planting.germinated == 2
+        event = planting.events.get(event_type=PlantingEvent.EventType.GERMINATED)
+        assert event.date == date(2026, 3, 1)
+        assert event.placement.is_empty
+
+    def test_redates_the_event(self, planting):
+        planting.set_germination(1, day=date(2026, 3, 1))
+
+        planting.set_germination(1, day=date(2026, 3, 8))
+
+        event = planting.events.get(event_type=PlantingEvent.EventType.GERMINATED)
+        assert event.date == date(2026, 3, 8)
+
+    def test_none_clears_field_and_event(self, planting):
+        planting.set_germination(3, day=date(2026, 3, 1))
+
+        planting.set_germination(None, day=date(2026, 3, 2))
+
+        planting.refresh_from_db()
+        assert planting.germinated is None
+        assert not planting.events.filter(event_type=PlantingEvent.EventType.GERMINATED).exists()
+
+    def test_reports_whether_anything_changed(self, planting):
+        assert planting.set_germination(1, day=date(2026, 3, 1)) is True
+        assert planting.set_germination(1, day=date(2026, 3, 1)) is False
+
+    def test_a_change_marks_the_planting_scanned(self, planting):
+        Planting.objects.filter(pk=planting.pk).update(last_scanned_at=None)
+        planting.refresh_from_db()
+
+        planting.set_germination(2, day=date(2026, 3, 1))
+
+        planting.refresh_from_db()
+        assert planting.last_scanned_at is not None
+
+    def test_no_change_does_not_touch_last_scanned(self, planting):
+        planting.set_germination(2, day=date(2026, 3, 1))
+        Planting.objects.filter(pk=planting.pk).update(last_scanned_at=None)
+        planting.refresh_from_db()
+
+        planting.set_germination(2, day=date(2026, 3, 1))
+
+        planting.refresh_from_db()
+        assert planting.last_scanned_at is None
+
+
 class TestContainerPlantings:
     """Tests for which plantings are considered to be in a container."""
 
     def test_lists_planting_planted_in_container(self, container, planting):
         from app.planting import _container_plantings
 
-        assert _container_plantings(container) == [planting]
+        assert list(_container_plantings(container)) == [planting]
 
     def test_excludes_planting_transplanted_elsewhere(self, container, planting):
         from app.planting import _container_plantings
@@ -54,8 +109,8 @@ class TestContainerPlantings:
             planted_in=other,
         )
 
-        assert _container_plantings(container) == []
-        assert _container_plantings(other) == [planting]
+        assert not _container_plantings(container).exists()
+        assert list(_container_plantings(other)) == [planting]
 
     def test_transplant_wins_tie_with_planted_on_same_date(self, container, planting):
         from app.planting import _container_plantings
@@ -70,8 +125,8 @@ class TestContainerPlantings:
             planted_in=other,
         )
 
-        assert _container_plantings(container) == []
-        assert _container_plantings(other) == [planting]
+        assert not _container_plantings(container).exists()
+        assert list(_container_plantings(other)) == [planting]
 
     def test_excludes_deleted_planting(self, container, planting):
         from app.planting import _container_plantings
@@ -79,7 +134,7 @@ class TestContainerPlantings:
         planting.deleted = True
         planting.save(update_fields=['deleted'])
 
-        assert _container_plantings(container) == []
+        assert not _container_plantings(container).exists()
 
 
 class TestContainerGerminationView:

@@ -17,7 +17,7 @@ class BarcodeIdAdminMixin:
     def scan_link(self, obj):
         if obj.pk is None:
             return '-'
-        return format_html('<a href="{}">Scan</a>', obj.scan_url)
+        return format_html('<a href="{}">Scan</a>', obj.scan_redirect_url)
 
     def save_model(self, request, obj, form, change):
         if not change and 'id' in request.GET:
@@ -187,7 +187,7 @@ class PlantingEventInline(admin.TabularInline):
 
 @admin.register(Planting)
 class PlantingAdmin(BarcodeIdAdminMixin, admin.ModelAdmin):
-    list_display = ('barcode', 'packet', 'first_event_date', 'germinated', 'deleted', 'last_scanned_at', 'scan_link')
+    list_display = ('barcode', 'packet', 'planted_date', 'germinated', 'deleted', 'last_scanned_at', 'scan_link')
     list_filter = ('deleted',)
     search_fields = ('packet__plant__name', 'events__location', 'events__notes')
     fieldsets = ((None, {'fields': ('barcode', 'packet', 'germinated', 'deleted', 'last_scanned_at')}),)

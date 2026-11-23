@@ -1,21 +1,16 @@
 {% comment %}
 The barcode/search input shown in the navbar.
 
-Rendered as a plain GET form by default: pages without a ``#scan-result``
-container submit to the scan page, which redirects when the value is a barcode
-or renders text-search results otherwise.  Templates that render
-``#scan-result`` pass ``htmx=True`` so the value is posted to the htmx handler
-and the results are swapped in place.
+The form posts to the scan action through htmx, which responds with a
+navigation: a barcode goes to its object's detail page, anything else goes to
+the search page.  Without JavaScript the same form falls back to a plain GET of
+``/scan/?q=``, which behaves identically.
 {% endcomment %}
 <form class="d-flex me-3"
       method="get"
       action="{% url 'app:scan' %}"
-      {% if htmx %}
-          hx-post="{% url 'app:scan_hxpost' %}"
-          hx-target="#scan-result"
-          hx-swap="outerHTML"
-          hx-on::after-swap="document.getElementById('navbar-barcode').focus()"
-      {% endif %}>
+      hx-post="{% url 'app:scan' %}"
+      hx-on::after-request="document.getElementById('navbar-barcode').focus()">
     <input class="form-control me-2"
            type="text"
            id="navbar-barcode"

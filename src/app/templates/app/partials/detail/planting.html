@@ -1,0 +1,96 @@
+{% load app_tags %}
+{% load garden_tags %}
+
+{% include "app/partials/detail/card.html" %}
+
+<div class="card mb-4">
+    <div class="card-header">
+        {% card_title %}Planting{% endcard_title %}
+    </div>
+    <div class="card-body">
+        <table class="table table-sm table-striped mb-3">
+            <tbody>
+                <tr>
+                    <th scope="row">Plant</th>
+                    <td>
+                        <a href="{{ obj.packet.plant.detail_url }}">{{ obj.packet.plant.name }}</a>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Packet</th>
+                    <td>
+                        <a href="{{ obj.packet.detail_url }}">{{ obj.packet.barcode }} {{ obj.packet.label }}</a>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Where</th>
+                    <td>
+                        {% include "app/partials/placement.html" with placement=obj.placement %}
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Germinated</th>
+                    <td>{{ obj.germinated|default:"-" }}</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="d-flex justify-content-between align-items-center">
+            {% subsection_title %}Events{% endsubsection_title %}
+            <button type="button"
+                    class="btn btn-primary btn-sm"
+                    hx-get="{% url 'app:planting_event_create' pk=obj.pk %}"
+                    hx-target="#detail"
+                    hx-swap="outerHTML">New event</button>
+        </div>
+        {% if obj.events.all %}
+            <table class="table table-sm table-striped mb-3">
+                <thead>
+                    <tr>
+                        <th>Event</th>
+                        <th>Date</th>
+                        <th>Planted in</th>
+                        <th>Location</th>
+                        <th>Notes</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in obj.events.all %}
+                        <tr>
+                            <td>{{ event.get_event_type_display }}</td>
+                            <td>{{ event.date|friendly_date }}</td>
+                            <td>
+                                {% if event.placement.container %}
+                                    <a href="{{ event.placement.container.detail_url }}">{{ event.placement.container.name }} ({{ event.placement.container.barcode }})</a>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ event.placement.text|default:"-" }}</td>
+                            <td>{{ event.notes|default:"-" }}</td>
+                            <td class="text-nowrap">
+                                <button type="button"
+                                        class="btn btn-outline-secondary btn-sm"
+                                        hx-get="{% url 'app:planting_event_edit' pk=event.pk %}"
+                                        hx-target="#detail"
+                                        hx-swap="outerHTML">Edit</button>
+                                <button type="button"
+                                        class="btn btn-outline-danger btn-sm"
+                                        hx-post="{% url 'app:planting_event_delete' pk=event.pk %}"
+                                        hx-target="#detail"
+                                        hx-swap="outerHTML"
+                                        hx-confirm="Delete this event?">Delete</button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="text-muted">No events recorded.</p>
+        {% endif %}
+        <div class="d-flex gap-2">
+            <a href="{% url 'app:planting_germination' pk=obj.pk %}"
+               class="btn btn-primary btn-sm">Germination</a>
+        </div>
+    </div>
+</div>

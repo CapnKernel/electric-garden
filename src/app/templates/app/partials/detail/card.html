@@ -1,0 +1,38 @@
+{% load app_tags %}
+
+{% comment %}
+The card shared by every detail page: title, model label, barcode, scan time and
+whatever rows the model adds.  Expects ``obj``; pass ``rows_template`` to add
+model-specific rows inside the table.
+{% endcomment %}
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        {% card_title %}{{ obj }}{% endcard_title %}
+        <span class="badge bg-secondary">{{ obj.model_label }}</span>
+    </div>
+    <div class="card-body">
+        <table class="table table-sm table-striped mb-0">
+            <tbody>
+                <tr>
+                    <th scope="row">Barcode</th>
+                    <td>
+                        <code>{{ obj.barcode }}</code>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">Last scanned</th>
+                    <td>
+                        {% if obj.last_scanned_at %}
+                            {{ obj.last_scanned_at|date }} ({{ obj.last_scanned_at|timesince }} ago)
+                        {% else %}
+                            <span class="text-muted">Never scanned</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% if rows_template %}
+                    {% include rows_template %}
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>

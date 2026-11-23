@@ -11,7 +11,7 @@ from .planting import (
     planting_event_edit,
     planting_germination,
 )
-from .scan import render_detail, scan_hxpost, scan_page
+from .scan import detail_view, scan_action, search_page
 
 app_name = 'app'
 
@@ -30,14 +30,14 @@ urlpatterns = [
         name='messages_partial',
     ),
     # Garden URLs (formerly mounted under /garden/).
-    path('scan/', scan_page, name='scan'),
-    path('scan_hxpost/', scan_hxpost, name='scan_hxpost'),
+    path('scan/', scan_action, name='scan'),
+    path('search/', search_page, name='search'),
     # Detail pages: the canonical URL for each scannable object.
-    path('plant/<int:pk>/', lambda request, pk: render_detail(request, Plant, pk), name='plant_detail'),
-    path('packet/<int:pk>/', lambda request, pk: render_detail(request, Packet, pk), name='packet_detail'),
+    path('plant/<int:pk>/', lambda request, pk: detail_view(request, Plant, pk), name='plant_detail'),
+    path('packet/<int:pk>/', lambda request, pk: detail_view(request, Packet, pk), name='packet_detail'),
     path('planting/new/', planting_create, name='planting_create'),
-    path('planting/<int:pk>/', lambda request, pk: render_detail(request, Planting, pk), name='planting_detail'),
-    path('container/<int:pk>/', lambda request, pk: render_detail(request, Container, pk), name='container_detail'),
+    path('planting/<int:pk>/', lambda request, pk: detail_view(request, Planting, pk), name='planting_detail'),
+    path('container/<int:pk>/', lambda request, pk: detail_view(request, Container, pk), name='container_detail'),
     path('planting/<int:pk>/germination/', planting_germination, name='planting_germination'),
     path('planting/<int:pk>/event/new/', planting_event_create, name='planting_event_create'),
     path('planting/event/<int:pk>/edit/', planting_event_edit, name='planting_event_edit'),

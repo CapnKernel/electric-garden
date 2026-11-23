@@ -1,0 +1,97 @@
+{% extends "app/base.html" %}
+
+{% load navtag %}
+{% load garden_tags %}
+{% load app_tags %}
+
+{% block title %}
+    {{ obj }}
+{% endblock title %}
+
+{% block nav %}
+    {% nav "scan" %}
+    {{ block.super }}
+{% endblock nav %}
+
+{% block breadcrumbs %}
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{% url 'app:top' %}">Dashboard</a>
+            </li>
+            {% with label=obj.label %}
+                <li class="breadcrumb-item">{{ obj.model_label|capfirst }}</li>
+                <li class="breadcrumb-item active" aria-current="page">{{ obj.barcode }}{% if label %} {{ label }}{% endif %}</li>
+            {% endwith %}
+        </ol>
+    </nav>
+{% endblock breadcrumbs %}
+
+{% block h1 %}
+    {{ obj }}
+{% endblock h1 %}
+
+{% block body %}
+    {% partialdef detail inline %}
+        <div id="detail">
+            {% include obj.detail_template %}
+        </div>
+    {% endpartialdef detail %}
+
+    {# Rendered by name for the event form that swaps the detail card in place. #}
+    {% partialdef planting-event-form %}
+        <div id="detail">
+            <div class="card mb-4">
+                <div class="card-header">
+                    {% card_title %}
+                        {% if event %}
+                            Edit event
+                        {% else %}
+                            New event
+                        {% endif %}
+                    {% endcard_title %}
+                </div>
+                <div class="card-body">
+                    <form hx-post="{% if event %}{% url 'app:planting_event_edit' pk=event.pk %}{% else %}{% url 'app:planting_event_create' pk=planting.pk %}{% endif %}"
+                          hx-target="#detail"
+                          hx-swap="outerHTML">
+                        {% csrf_token %}
+                        {% for field in form %}
+                            <div class="mb-3">
+                                <label class="form-label" for="{{ field.id_for_label }}">
+                                    {{ field.label }}
+                                    {% if field.name in form.defaulted_fields %}
+                                        <span class="badge bg-warning text-dark ms-1"
+                                              title="Copied from a previous event - please check it">Default</span>
+                                    {% endif %}
+                                </label>
+                                {% if field.name == 'date' %}
+                                    <div class="input-group">
+                                        <button type="button"
+                                                class="btn btn-primary"
+                                                onclick="setToday('{{ field.id_for_label }}')"
+                                                {% if form.today_button_disabled %}disabled{% endif %}>Today</button>
+                                        {{ field }}
+                                    </div>
+                                {% else %}
+                                    {{ field }}
+                                {% endif %}
+                                {% if field.help_text %}
+                                    <div class="form-text">{{ field.help_text }}</div>
+                                {% endif %}
+                                {% for error in field.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+                        {% if form.defaulted_fields %}
+                            <p class="form-text">Some values were copied from the most recent matching event. Please check/amend before saving.</p>
+                        {% endif %}
+                        <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                        <a href="{{ planting.detail_url }}" class="btn btn-secondary btn-sm">Cancel</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    {% endpartialdef planting-event-form %}
+{% endblock body %}

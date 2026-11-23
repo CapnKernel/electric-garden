@@ -8,6 +8,8 @@ from django.db import models
 from django.urls import reverse
 from django.utils import timezone
 
+from .placement import Placement
+
 
 class BarcodeManager(models.Manager):
     """Manager that accepts a ``barcode`` in place of a primary key.
@@ -32,28 +34,30 @@ class BarcodeManager(models.Manager):
 
 
 class BarcodedBase(models.Model):
+    """Base for objects that have a barcode, a URL and a scan history.
+
+    A concrete subclass sets:
+
+    * ``barcode_start``: the first id in its barcode range, which also gives the
+      zero-padded width unless ``barcode_width`` says otherwise;
+    * ``prefix``: ``P=`` for plants, packets and plantings, ``PC=`` for
+      containers;
+    * ``detail_url_name``: the URL pattern of its detail page;
+    * ``detail_template``: the partial that renders one object of this model.
+    """
+
+    # --- Barcoding ---
     barcode_start = 0
     prefix = 'P='
-    # Name of the URL pattern for this model's detail page, used by
-    # ``get_absolute_url``; set on each concrete subclass.
-    detail_url_name = None
     # Number of digits the id is zero-padded to in the barcode.  Derived from
     # ``barcode_start`` (e.g. 100 -> 3 digits, 1000 -> 4 digits) unless set
     # explicitly on the subclass.
     barcode_width = None
 
-    # Scanning tracking
-    last_scanned_at = models.DateTimeField(null=True, blank=True, help_text='When this object was last scanned')
-
     objects = BarcodeManager()
 
     class Meta:
         abstract = True
-
-    def mark_scanned(self):
-        """Record that this object was just scanned."""
-        self.last_scanned_at = timezone.now()
-        self.save(update_fields=['last_scanned_at'])
 
     @classmethod
     def _barcode_width(cls):
@@ -73,38 +77,6 @@ class BarcodedBase(models.Model):
             return '<unsaved>'
         return f'{self.prefix}{self.id:0{self._barcode_width()}d}'
 
-    @property
-    def verbose_name(self):
-        """Human-readable model name (e.g. 'plant', 'container')."""
-        return self._meta.verbose_name
-
-    @property
-    def label(self):
-        """Short human-readable name shown after the barcode (e.g. in breadcrumbs)."""
-        return ''
-
-    @property
-    def scan_url(self):
-        """URL that shows this object as if its barcode had been scanned."""
-
-        return reverse('app:scan', query={'q': self.barcode})
-
-    @property
-    def admin_url(self):
-        """URL of this object's admin change page."""
-
-        meta = self._meta
-        return reverse(f'admin:{meta.app_label}_{meta.model_name}_change', args=[self.pk])
-
-    @property
-    def detail_url(self):
-        """URL of this object's detail page (the canonical public URL)."""
-        return reverse(f'app:{self.detail_url_name}', kwargs={'pk': self.pk})
-
-    def get_absolute_url(self):
-        """Return the canonical public URL for this object."""
-        return self.detail_url
-
     @classmethod
     def pk_from_barcode(cls, barcode):
         """Return the primary key encoded in ``barcode`` for this model."""
@@ -121,11 +93,59 @@ class BarcodedBase(models.Model):
             return None
         return cls.objects.filter(pk=match.group(1)).first()
 
+    # --- Scanning ---
+    last_scanned_at = models.DateTimeField(null=True, blank=True, help_text='When this object was last scanned')
+
+    def mark_scanned(self):
+        """Record that this object was just scanned."""
+        self.last_scanned_at = timezone.now()
+        self.save(update_fields=['last_scanned_at'])
+
+    @property
+    def scan_redirect_url(self):
+        """URL that marks this object scanned and then shows its detail page."""
+        return reverse('app:scan', query={'q': self.barcode})
+
+    # --- URLs ---
+    # Name of the URL pattern for this model's detail page, used by
+    # ``get_absolute_url``; set on each concrete subclass.
+    detail_url_name = None
+    # Partial that renders one object of this model, e.g. on its detail page.
+    detail_template = None
+
+    @property
+    def detail_url(self):
+        """URL of this object's detail page (the canonical public URL)."""
+        return reverse(f'app:{self.detail_url_name}', kwargs={'pk': self.pk})
+
+    def get_absolute_url(self):
+        """Return the canonical public URL for this object."""
+        return self.detail_url
+
+    @property
+    def admin_url(self):
+        """URL of this object's admin change page."""
+
+        meta = self._meta
+        return reverse(f'admin:{meta.app_label}_{meta.model_name}_change', args=[self.pk])
+
+    # --- Display ---
+    @property
+    def model_label(self):
+        """Human-readable model name (e.g. 'plant', 'container')."""
+        return self._meta.verbose_name
+
+    @property
+    def label(self):
+        """Short human-readable name shown after the barcode (e.g. in breadcrumbs)."""
+        return ''
+
 
 class Container(BarcodedBase):
     barcode_start = 1
     prefix = 'PC='
     detail_url_name = 'container_detail'
+    detail_template = 'app/partials/detail/container.html'
 
     name = models.CharField(max_length=100)  # Example: 'Blue ribbon 1'
 
@@ -143,43 +163,44 @@ class Container(BarcodedBase):
         return f'{self.barcode}: {self.name}'
 
     @property
-    def contents(self):
-        """Return the packets and planting events stored in this container.
-
-        A planting's events are listed in the container the planting is
-        currently in: the container named by its most recent located event (see
-        ``plantings``).  A planting whose latest located event gives only a
-        free-text ``location`` is in no container, so it is not listed
-        anywhere.  All of the planting's events are shown (grouped by planting,
-        ordered by date), so its planted, germinated and transplanted events
-        appear together.
-        """
-        events = PlantingEvent.objects.filter(planting__in=self.plantings).order_by('planting_id', 'date', 'pk')
-        return list(self.packet_set.all()) + list(events)
+    def packets(self):
+        """The packets stored in this container."""
+        return self.packet_set.all()
 
     @property
     def plantings(self):
-        """Return the plantings currently growing in this container.
+        """The plantings currently growing in this container.
 
         ``planted_in`` and ``location`` are the two halves of a single
         location, so a planting's location is whatever its most recent located
         event (``Planting.location_event``) records.  The planting is "in" this
         container only when that event's ``planted_in`` points here: a
         transplant into another container moves it, and a transplant to a
-        free-text ``location`` leaves it in no container at all, in both cases
-        removing it from this container's list.
+        free-text ``location`` leaves it in no container at all.
+
+        See ``PlantingManager.in_container`` for the query.
         """
-        plantings = []
-        for planting in Planting.objects.filter(deleted=False).select_related('packet__plant'):
-            latest = planting.location_event
-            if latest is not None and latest.planted_in_id == self.pk:
-                plantings.append(planting)
-        return plantings
+        return Planting.objects.in_container(self)
+
+    @property
+    def planting_events(self):
+        """Every event of every planting currently in this container.
+
+        Ordered by planting and then date, so the container view can show one
+        row per planting listing its planted, germinated and transplanted events
+        together.
+        """
+        return (
+            PlantingEvent.objects.filter(planting__in=self.plantings)
+            .select_related('planting__packet__plant', 'planted_in')
+            .order_by('planting_id', 'date', 'pk')
+        )
 
 
 class Plant(BarcodedBase):
     barcode_start = 0  # There won't actually be a 0, this just makes it match better with the others
     detail_url_name = 'plant_detail'
+    detail_template = 'app/partials/detail/plant.html'
 
     code = models.CharField(max_length=10, unique=True)  # Example: 'BR' or '豆DGD'
     deleted = models.BooleanField(default=False)
@@ -359,16 +380,22 @@ class PlantingSchedule(models.Model):
         year = iso.year if self.start_week <= iso.week else iso.year - 1
         return self.monday_of(year, self.start_week)
 
-    def plant_due_date(self, day):
+    def due_date(self, day):
         """Date the current cycle's planting is, or was, due.
 
         Succession schedules fall due ``repeat_every_weeks`` after the last
         planting; one-off schedules are due from the start of the window cycle.
+        This is the single definition of "due": ``plant_status`` and the
+        dashboard both use it.
         """
         last = self.plant.last_planted_date()
         if self.repeat_every_weeks and last is not None:
             return last + timedelta(weeks=self.repeat_every_weeks)
         return self.cycle_start_date(day)
+
+    def plant_due_date(self, day):
+        """The due date, under the name callers and the dashboard already use."""
+        return self.due_date(day)
 
     def plant_status(self, day=None):
         """Classify the schedule for ``day`` as due, already planted, or overdue.
@@ -383,7 +410,7 @@ class PlantingSchedule(models.Model):
         last = self.plant.last_planted_date()
         monday = self.monday_of(day.isocalendar().year, day.isocalendar().week)
         if self.repeat_every_weeks and last is not None:
-            due = last + timedelta(weeks=self.repeat_every_weeks)
+            due = self.due_date(day)
             if due > day:
                 return self.Status.PLANTED
             if due >= monday:
@@ -394,7 +421,12 @@ class PlantingSchedule(models.Model):
         return self.Status.DUE
 
     def span_weeks(self):
-        """Number of ISO weeks the window covers, counting the wrapped year end."""
+        """Number of ISO weeks the window covers, counting the wrapped year end.
+
+        Weeks are normalised to a 53-week ISO year, so the count does not depend
+        on the length of the year the schedule is read in; a wrapping window such
+        as 44-8 therefore always spans 18 weeks.
+        """
         return (self.end_week - self.start_week) % 53 + 1
 
     def succession_weeks(self):
@@ -431,6 +463,7 @@ class PlantingSchedule(models.Model):
 class Packet(BarcodedBase):
     barcode_start = 100
     detail_url_name = 'packet_detail'
+    detail_template = 'app/partials/detail/packet.html'
 
     plant = models.ForeignKey(Plant, on_delete=models.PROTECT)
     container = models.ForeignKey(Container, on_delete=models.PROTECT, null=True, blank=True)
@@ -451,9 +484,9 @@ class Packet(BarcodedBase):
         return list(self.planting_set.all())
 
     @property
-    def grouping_key(self):
-        """Key used to group rows in a container's contents (see scan_contents)."""
-        return ('packet', self.pk)
+    def placement(self):
+        """Where this packet is kept: its container, with no free-text detail."""
+        return Placement(container=self.container)
 
     @property
     def label(self):
@@ -466,9 +499,37 @@ class Packet(BarcodedBase):
         return f'{self.barcode}: {self.label}'
 
 
+class PlantingManager(BarcodeManager):
+    """Manager for plantings, adding container membership lookup."""
+
+    def in_container(self, container):
+        """Plantings whose latest located event names ``container``.
+
+        A location is one ``Placement``, so the latest event with any placement
+        decides where a planting is: a later event naming another container
+        moves it, and one that gives only free text leaves it in no container at
+        all.
+        """
+        latest_placed_event = (
+            PlantingEvent.objects.filter(planting=models.OuterRef('pk'))
+            .filter(PlantingEvent.has_placement_q())
+            .annotate(recency=PLANTING_EVENT_RECENCY)
+            .order_by('-date', '-recency', '-pk')
+        )
+        return (
+            self.filter(deleted=False)
+            .annotate(placement_container=models.Subquery(latest_placed_event.values('planted_in_id')[:1]))
+            .filter(placement_container=container.pk)
+            .select_related('packet__plant')
+        )
+
+
 class Planting(BarcodedBase):
     barcode_start = 1000
     detail_url_name = 'planting_detail'
+    detail_template = 'app/partials/detail/planting.html'
+
+    objects = PlantingManager()
 
     packet = models.ForeignKey(Packet, on_delete=models.PROTECT)
     deleted = models.BooleanField(default=False)
@@ -484,51 +545,76 @@ class Planting(BarcodedBase):
         pass
 
     @property
-    def first_event_date(self):
-        """Date of the earliest event for this planting, or ``None``."""
-        first = self.events.order_by('date', 'pk').first()
-        return first.date if first else None
-
-    @property
     def planted_date(self):
-        """Date of the earliest ``planted`` event, or ``None``."""
-        first = self.events.filter(event_type=PlantingEvent.EventType.PLANTED).order_by('date', 'pk').first()
-        return first.date if first else None
+        """Date of the planting's ``planted`` event, or ``None``.
 
-    @property
-    def latest_event(self):
-        """Most recent event for this planting, or ``None``.
-
-        Ties on ``date`` are broken the same way as in
-        ``Container.plantings``, so a transplant outranks a germination on the
-        same day.
+        A planting is planted once (see the ``unique_planted_event_per_planting``
+        constraint), so this is the whole of "when it was planted".
         """
-        return self.events.annotate(recency=PLANTING_EVENT_RECENCY).order_by('-date', '-recency', '-pk').first()
+        planted = self.events.filter(event_type=PlantingEvent.EventType.PLANTED).first()
+        return planted.date if planted else None
 
     @property
     def location_event(self):
-        """Most recent event that has a location, or ``None``.
+        """Most recent event that records a placement, or ``None``.
 
-        ``germinated`` events carry no location details (see
-        ``PlantingEvent.clean``), so they are skipped: a planting's location is
-        whatever its latest ``planted`` or ``transplanted`` event recorded.
+        The raw event behind ``placement``: ``germinated`` events carry no
+        placement (see ``PlantingEvent.clean``), so they are skipped, and a
+        planting's location is whatever its latest ``planted`` or
+        ``transplanted`` event recorded.  Ties on ``date`` are broken so a
+        transplant outranks a germination outranks a planting.
         """
         return (
-            self.events.filter(PlantingEvent.location_q())
+            self.events.filter(PlantingEvent.has_placement_q())
+            .select_related('planted_in')
             .annotate(recency=PLANTING_EVENT_RECENCY)
             .order_by('-date', '-recency', '-pk')
             .first()
         )
 
     @property
-    def location(self):
-        """Free-text location on the planting's most recent located event, if any.
+    def placement(self):
+        """Where this planting is: the placement on its most recent located event."""
+        return Placement.from_event(self.location_event)
 
-        This is only the ``location`` half of the location; the other half is the
-        container in ``location_event.planted_in``.
+    def is_in(self, container):
+        """Whether this planting is currently in ``container``."""
+        return self.placement.is_in(container)
+
+    def set_germination(self, score, day=None):
+        """Record a germination outcome, keeping the score and its event in step.
+
+        ``score`` is 0-3, or ``None`` for "nothing germinated".  A score sets the
+        field and creates the planting's ``germinated`` event, or redates it;
+        ``None`` clears the field and deletes the event.  A germinated event
+        records only when germination was seen, so it carries no placement (see
+        ``PlantingEvent.clean``).
+
+        Returns whether anything changed.  A change marks the planting scanned,
+        so the field and the event can never drift apart.
         """
-        event = self.location_event
-        return event.location if event is not None else None
+        day = day or timezone.localdate()
+        event = self.events.filter(event_type=PlantingEvent.EventType.GERMINATED).order_by('-date', '-pk').first()
+        changed = self.germinated != score
+
+        if score is None:
+            if event is not None:
+                event.delete()
+                changed = True
+        elif event is None:
+            PlantingEvent.objects.create(planting=self, event_type=PlantingEvent.EventType.GERMINATED, date=day)
+            changed = True
+        elif event.date != day:
+            event.date = day
+            event.save(update_fields=['date'])
+            changed = True
+
+        if self.germinated != score:
+            self.germinated = score
+            self.save(update_fields=['germinated'])
+        if changed:
+            self.mark_scanned()
+        return changed
 
     @property
     def label(self):
@@ -536,8 +622,13 @@ class Planting(BarcodedBase):
         return self.packet.plant.name
 
     def __str__(self):
-        when = f' planted {first_event_date:%d-%b-%Y}' if (first_event_date := self.first_event_date) else ''
-        return f'{self.barcode}: {self.packet.plant.name}{when}'
+        """Barcode, plant name and planting date, e.g. ``P=1001: Dwarf bean planted 01-Jan-2026``.
+
+        The date comes from ``planted_date``, so this costs one query; callers
+        that render many plantings should use a queryset annotation instead.
+        """
+        when = f' planted {planted:%d-%b-%Y}' if (planted := self.planted_date) else ''
+        return f'{self.barcode}: {self.label}{when}'
 
 
 class PlantingEvent(models.Model):
@@ -573,89 +664,87 @@ class PlantingEvent(models.Model):
             ),
         )
 
-    @property
-    def verbose_name(self):
-        """Human-readable model name (e.g. 'planting event').
-
-        Mirrors ``BarcodedBase.verbose_name`` so the scan templates can
-        distinguish a planting event from a packet in a container's contents.
-        """
-        return self._meta.verbose_name
-
-    @property
-    def grouping_key(self):
-        """Key used to group rows in a container's contents (see scan_contents).
-
-        Consecutive events for the same planting share a key, so the template
-        can blank the repeated planting columns with ``{% ifchanged %}``.
-        """
-        return ('planting', self.planting_id)
-
     @staticmethod
-    def location_q():
-        """``Q`` matching events that specify a location.
+    def has_placement_q():
+        """``Q`` matching events that record a placement.
 
-        ``planted_in`` and ``location`` are two parts of one location, so an
-        event has a location when either is set.  An empty string is treated as
-        unset, so a form submitted with a blank ``location`` is not a location.
+        ``planted_in`` and ``location`` are the two halves of one placement, so
+        an event has one when either is set.  An empty string counts as unset,
+        so a form submitted with a blank ``location`` records no placement.
         """
         return models.Q(planted_in__isnull=False) | (models.Q(location__isnull=False) & ~models.Q(location=''))
 
     @classmethod
-    def last_location(cls):
-        """Return the free-text location recorded by the most recent event, if any.
+    def last_placement(cls):
+        """The most recently recorded placement, or ``EMPTY``.
 
-        This is the location used last time, offered as a starting point when
-        recording a new location.  Events whose location is only a container are
-        skipped: there is no free text to offer.
+        Offered as a starting point when recording a new planting.  Both halves
+        come from the same event, so the container and the free text offered are
+        the pair that was used together.
         """
-        return (
-            cls.objects.exclude(location__isnull=True)
-            .exclude(location='')
-            .order_by('-date', '-pk')
-            .values_list('location', flat=True)
-            .first()
-        )
+        event = cls.objects.filter(cls.has_placement_q()).select_related('planted_in').order_by('-date', '-pk').first()
+        return Placement.from_event(event)
 
-    @classmethod
-    def last_planted_in(cls):
-        """Return the container used by the most recent event, if there is one.
+    @property
+    def placement(self):
+        """Where this event happened: the container and free text together."""
+        return Placement(container=self.planted_in, text=self.location)
 
-        The counterpart of ``last_location`` for the container half of a
-        location: the container used last time, offered as a starting point when
-        recording a new planting.
-        """
-        event = (
-            cls.objects.filter(planted_in__isnull=False).select_related('planted_in').order_by('-date', '-pk').first()
-        )
-        return event.planted_in if event is not None else None
+    def set_placement(self, placement):
+        """Set both halves of this event's location from one ``Placement``."""
+        self.planted_in = placement.container
+        self.location = placement.text
 
     @property
     def has_location(self):
-        """Whether this event specifies a location (a container, text, or both)."""
+        """Whether this event records a placement.
+
+        The id-based form of ``not placement.is_empty``, so validation does not
+        load the container when the instance only carries ``planted_in_id``.
+        """
         return self.planted_in_id is not None or bool(self.location)
 
     def clean(self):
         """Reject invalid event combinations.
 
-        Location details belong to the ``planted`` and ``transplanted`` events;
-        a ``germinated`` event records only when germination was seen.  Storing
-        the same container or location on it would duplicate the preceding
-        event's data and let the two copies drift apart.
+        The first event created for a particular planting must be a PLANTED event,
+        and a planting may only have one PLANTED event (see the
+        ``unique_planted_event_per_planting`` constraint).  Other event types can be
+        created after the PLANTED event.
 
-        A planting is planted once (see the ``unique_planted_event_per_planting``
-        constraint); later moves are ``transplanted`` events.
+        The PLANTED event must be the earliest event: no event may be dated before
+        it, and it may not be dated after an event that already exists.  The other
+        event types therefore follow the PLANTED event in both creation order and
+        date.
+
+        Location details belong to the ``planted`` and ``transplanted`` events;
+        a ``germinated`` event records only when germination was seen, so it's an
+        error to set location on a germination event.
+
+        An event with no planting set (a blank admin inline row) is not checked.
         """
         super().clean()
         if self.event_type == self.EventType.GERMINATED and self.has_location:
             raise ValidationError({'planted_in': 'A germinated event cannot have a container or location set.'})
-        if (
-            self.event_type == self.EventType.PLANTED
-            and self.pk is None
-            and self.planting_id is not None
-            and PlantingEvent.objects.filter(planting_id=self.planting_id, event_type=self.EventType.PLANTED).exists()
-        ):
-            raise ValidationError({'event_type': 'This planting already has a planted event.'})
+        if self.planting_id is None:
+            return
+
+        # ``date`` may still be a string when the instance has not been saved, so
+        # compare the converted value; ``others`` always holds dates from the db.
+        event_date = self._meta.get_field('date').to_python(self.date)
+        others = PlantingEvent.objects.filter(planting_id=self.planting_id).exclude(pk=self.pk)
+        planted = others.filter(event_type=self.EventType.PLANTED).order_by('date', 'pk').first()
+        if self.event_type == self.EventType.PLANTED:
+            if planted is not None:
+                raise ValidationError({'event_type': 'This planting already has a planted event.'})
+            if self.pk is None and others.exists():
+                raise ValidationError({'event_type': 'Record the planted event before any other event.'})
+            if others.filter(date__lt=event_date).exists():
+                raise ValidationError({'date': 'The planted event must be the earliest event.'})
+        elif planted is None:
+            raise ValidationError({'event_type': 'Record the planted event before any other event.'})
+        elif event_date < planted.date:
+            raise ValidationError({'date': 'An event cannot be dated before the planted event.'})
 
     def save(self, *args, **kwargs):
         """Validate the event before writing it, so a bad row cannot be saved."""

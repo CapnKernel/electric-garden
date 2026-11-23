@@ -41,4 +41,4 @@ def test_admin_changelist_links_to_scan_page(admin_client, db):
 
     response = admin_client.get(reverse('admin:app_plant_changelist'))
 
-    assertContains(response, plant.scan_url)
+    assertContains(response, plant.scan_redirect_url)
