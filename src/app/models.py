@@ -79,16 +79,22 @@ class BarcodedBase(models.Model):
 
     @classmethod
     def pk_from_barcode(cls, barcode):
-        """Return the primary key encoded in ``barcode`` for this model."""
-        return int(barcode.removeprefix(cls.prefix))
+        """Return the primary key encoded in ``barcode`` for this model.
+
+        Matching is case-insensitive, so ``pc=7`` and ``PC=7`` are the same
+        barcode.
+        """
+        return int((barcode or '').upper().removeprefix(cls.prefix.upper()))
 
     @classmethod
     def from_barcode(cls, barcode):
         """Return the instance matching ``barcode``, or ``None`` if not found.
 
         The barcode must be of the form ``<prefix><integer>`` for this model.
+        Matching is case-insensitive, so ``pc=7`` and ``PC=7`` are the same
+        barcode.
         """
-        match = re.match(f'^{re.escape(cls.prefix)}(\\d+)$', barcode or '')
+        match = re.match(f'^{re.escape(cls.prefix.upper())}(\\d+)$', (barcode or '').upper())
         if not match:
             return None
         return cls.objects.filter(pk=match.group(1)).first()

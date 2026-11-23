@@ -50,6 +50,15 @@ class TestFromBarcode:
     def test_container_from_barcode(self, container):
         assert Container.from_barcode('PC=1') == container
 
+    def test_lowercase_prefix_matches(self, plant, packet, planting, container):
+        assert Plant.from_barcode('p=1') == plant
+        assert Packet.from_barcode('p=101') == packet
+        assert Planting.from_barcode('p=1001') == planting
+        assert Container.from_barcode('pc=1') == container
+
+    def test_mixed_case_prefix_matches(self, container):
+        assert Container.from_barcode('pC=1') == container
+
     def test_returns_none_for_unknown_id(self, db):
         assert Plant.from_barcode('P=999') is None
 

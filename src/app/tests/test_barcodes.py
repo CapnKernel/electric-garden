@@ -68,6 +68,22 @@ def test_pk_from_barcode_uses_each_models_prefix(plant, packet, planting, contai
     assert Container.pk_from_barcode('PC=7') == 7
 
 
+def test_pk_from_barcode_is_case_insensitive(plant, packet, planting, container):
+    assert Plant.pk_from_barcode('p=7') == 7
+    assert Packet.pk_from_barcode('p=107') == 107
+    assert Planting.pk_from_barcode('p=1007') == 1007
+    assert Container.pk_from_barcode('pc=7') == 7
+    assert Container.pk_from_barcode('pC=7') == 7
+
+
+def test_create_accepts_lowercase_barcode(db):
+    plant = Plant.objects.create(barcode='p=7', code='BR', name='Beetroot')
+    assert plant.id == 7
+
+    container = Container.objects.create(barcode='pc=2', name='Blue ribbon 1')
+    assert container.id == 2
+
+
 def test_create_accepts_barcode(db):
     plant = Plant.objects.create(barcode='P=7', code='BR', name='Beetroot')
     assert plant.id == 7
