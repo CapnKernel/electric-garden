@@ -61,12 +61,14 @@ Do not offer to run all tests unless asked.
 - This is a Django 6 project, so partials are available and expected.
 - Use the htmx paradigm where possible.  Use alpine.js if it would be useful.
 - If a helper function is only used by one other function, nest the helper within the caller.
+- Use of inline htmx fragments using `partialdef` is preferred over discrete partial files.
+- As a guide, unit tests which are testing logic should check the response's content, rather than looking for strings in the rendered HTML.  Unit tests which are testing template functionality should check the response's rendered content, usually with `assertContains`.
 
 ## Important
 
 - As far as possible, suggest all changes to one file in one `apply_diff`.
   Do not use multiple `apply_diff`s on the same file for one concern unless unavoidable.  Exception: Writing to `ai-assistance/planting-plan.md`.  For this file, apply differences in discrete chunks.
-- As a guide, unit tests which are testing logic should check the response's content, rather than looking for strings in the rendered HTML.  Unit tests which are testing template functionality should check the response's rendered content, usually with `assertContains`.
+- When suggesting commit messages, limit line length to 90 chars, and prefer a single line unless a single line would not properly convey the sense of the changes.
 - On the VPS, do _not_ run git commands as root.  Run them as user `user`.
 
 # Project context for AI farming assistants
