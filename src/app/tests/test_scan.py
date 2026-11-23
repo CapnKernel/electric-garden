@@ -113,6 +113,11 @@ class TestScanAction:
 
         assertContains(response, f'hx-post="{reverse("app:scan")}"')
 
+    def test_text_input_pages_hide_the_scan_field(self, authed_client):
+        response = authed_client.get(reverse('app:planting_create'))
+
+        assertNotContains(response, 'id="navbar-barcode"')
+
     def test_breadcrumb_is_scan(self, authed_client):
         response = authed_client.get(reverse('app:scan'))
 

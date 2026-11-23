@@ -12,6 +12,10 @@
     {{ block.super }}
 {% endblock nav %}
 
+{# This page asks for text input, so the scan field is not shown. #}
+{% block scan_field %}
+{% endblock scan_field %}
+
 {% block breadcrumbs %}
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
