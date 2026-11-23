@@ -76,12 +76,6 @@
                             {% nav text ' active' %}
                             <ul class="navbar-nav me-auto">
                                 <li class="nav-item">
-                                    <a class="nav-link{{ nav.dash }}" href='{% url "app:top" %}'>Dashboard</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link{{ nav.scan }}" href="{% url 'app:scan' %}">Scan</a>
-                                </li>
-                                <li class="nav-item">
                                     <a class="nav-link"
                                        href="{% block item-admin-link %}{% if obj %}{{ obj.admin_url }}{% else %}{% url 'admin:index' %}{% endif %}{% endblock item-admin-link %}">Admin</a>
                                 </li>
