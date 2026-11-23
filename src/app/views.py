@@ -48,7 +48,7 @@ def plant_now(request):
             {
                 'schedule': schedule,
                 'last': schedule.plant.last_planted_date(),
-                'due': schedule.plant_due_date(today) if schedule.repeat_every_weeks else None,
+                'due': schedule.due_date(today) if schedule.repeat_every_weeks else None,
             }
         )
 

@@ -102,7 +102,7 @@ def text_search(term):
                             f'{event.get_event_type_display()} {event.date:%d %b %Y}'
                         ),
                         'url': event.planting.detail_url,
-                        'detail': event.location or event.notes or '',
+                        'detail': event.placement.text or event.notes or '',
                     }
                     for event in events
                 ],

@@ -1,0 +1,59 @@
+{% extends "app/base.html" %}
+
+{% load navtag %}
+{% load app_tags %}
+
+{% block title %}
+    Search
+{% endblock title %}
+
+{% block nav %}
+    {% nav "scan" %}
+    {{ block.super }}
+{% endblock nav %}
+
+{% block breadcrumbs %}
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{% url 'app:top' %}">Dashboard</a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">Search</li>
+        </ol>
+    </nav>
+{% endblock breadcrumbs %}
+
+{% block h1 %}
+    Search
+{% endblock h1 %}
+
+{% block body %}
+    <div id="search-results">
+        {% if not q %}
+            <p class="text-muted">Scan a barcode, or type a search term and press Enter.</p>
+        {% elif error %}
+            <div class="alert alert-danger" role="alert">{{ error }}</div>
+        {% else %}
+            <p class="text-muted">
+                No barcode matched <code>{{ q }}</code>. Search results:
+            </p>
+            {% for group in search_results %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        {% card_title %}{{ group.title }}{% endcard_title %}
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled mb-0">
+                            {% for item in group.items %}
+                                <li>
+                                    <a href="{{ item.url }}">{{ item.label }}</a>
+                                    {% if item.detail %}<span class="text-muted">— {{ item.detail }}</span>{% endif %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+{% endblock body %}

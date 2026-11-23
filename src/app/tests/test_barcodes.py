@@ -84,23 +84,84 @@ class TestPlantedDate:
 
     def test_returns_planted_event(self, db, packet):
         planting = Planting.objects.create(id=2, packet=packet)
-        PlantingEvent.objects.create(planting=planting, event_type=PlantingEvent.EventType.OTHER, date='2026-01-15')
         PlantingEvent.objects.create(planting=planting, event_type=PlantingEvent.EventType.PLANTED, date='2026-02-01')
+        PlantingEvent.objects.create(planting=planting, event_type=PlantingEvent.EventType.OTHER, date='2026-02-15')
 
         assert planting.planted_date == date(2026, 2, 1)
 
     def test_ignores_other_event_types(self, db, packet):
         planting = Planting.objects.create(id=3, packet=packet)
+        PlantingEvent.objects.create(planting=planting, event_type=PlantingEvent.EventType.PLANTED, date='2026-01-01')
         PlantingEvent.objects.create(
-            planting=planting, event_type=PlantingEvent.EventType.GERMINATED, date='2026-01-01'
+            planting=planting, event_type=PlantingEvent.EventType.GERMINATED, date='2026-01-05'
         )
 
-        assert planting.planted_date is None
+        assert planting.planted_date == date(2026, 1, 1)
 
     def test_returns_none_without_events(self, db, packet):
         planting = Planting.objects.create(id=4, packet=packet)
 
         assert planting.planted_date is None
+
+
+class TestEventOrdering:
+    """The planted event comes first, in creation order and in date."""
+
+    def test_first_event_must_be_planted(self, db, packet):
+        planting = Planting.objects.create(id=5, packet=packet)
+
+        with pytest.raises(ValidationError):
+            PlantingEvent.objects.create(
+                planting=planting,
+                event_type=PlantingEvent.EventType.GERMINATED,
+                date='2026-01-05',
+            )
+
+    def test_planted_event_rejected_once_another_event_exists(self, db, packet):
+        planting = Planting.objects.create(id=6, packet=packet)
+        # A non-planted event can only exist here if it bypassed validation.
+        PlantingEvent.objects.bulk_create(
+            [
+                PlantingEvent(
+                    planting=planting,
+                    event_type=PlantingEvent.EventType.OTHER,
+                    date='2026-01-05',
+                )
+            ]
+        )
+
+        with pytest.raises(ValidationError):
+            PlantingEvent.objects.create(
+                planting=planting,
+                event_type=PlantingEvent.EventType.PLANTED,
+                date='2026-01-02',
+            )
+
+    def test_event_not_dated_before_planted(self, db, packet):
+        planting = Planting.objects.create(id=7, packet=packet)
+        PlantingEvent.objects.create(planting=planting, event_type=PlantingEvent.EventType.PLANTED, date='2026-02-01')
+
+        with pytest.raises(ValidationError):
+            PlantingEvent.objects.create(
+                planting=planting,
+                event_type=PlantingEvent.EventType.TRANSPLANTED,
+                date='2026-01-15',
+            )
+
+    def test_planted_not_dated_after_an_existing_event(self, db, packet):
+        planting = Planting.objects.create(id=8, packet=packet)
+        planted = PlantingEvent.objects.create(
+            planting=planting, event_type=PlantingEvent.EventType.PLANTED, date='2026-01-01'
+        )
+        PlantingEvent.objects.create(
+            planting=planting,
+            event_type=PlantingEvent.EventType.GERMINATED,
+            date='2026-01-20',
+        )
+
+        planted.date = date(2026, 1, 25)
+        with pytest.raises(ValidationError):
+            planted.save()
 
 
 class TestLabel:
@@ -124,6 +185,26 @@ class TestLabel:
         assert packet.label == 'Dwarf bean (Marketmore)'
 
 
+class TestModelLabel:
+    """``model_label`` names the model for templates, e.g. in breadcrumbs."""
+
+    def test_values(self, plant, packet, planting, container):
+        assert plant.model_label == 'plant'
+        assert packet.model_label == 'packet'
+        assert planting.model_label == 'planting'
+        assert container.model_label == 'container'
+
+
+class TestDetailTemplate:
+    """Each barcoded model names the partial that renders it."""
+
+    def test_values(self, plant, packet, planting, container):
+        assert plant.detail_template == 'app/partials/detail/plant.html'
+        assert packet.detail_template == 'app/partials/detail/packet.html'
+        assert planting.detail_template == 'app/partials/detail/planting.html'
+        assert container.detail_template == 'app/partials/detail/container.html'
+
+
 class TestPacketStr:
     """``str(packet)`` is the barcode and label, e.g. for form selects and admin."""
 
@@ -134,6 +215,18 @@ class TestPacketStr:
         packet.full_name = 'Marketmore'
 
         assert str(packet) == 'P=101: Dwarf bean (Marketmore)'
+
+
+class TestPlantingStr:
+    """``str(planting)`` names the barcode, plant and planting date."""
+
+    def test_includes_planted_date(self, planting):
+        assert str(planting) == 'P=1001: Dwarf bean planted 01-Jan-2026'
+
+    def test_without_a_planted_event(self, db, packet):
+        planting = Planting.objects.create(id=1002, packet=packet)
+
+        assert str(planting) == 'P=1002: Dwarf bean'
 
 
 class TestSinglePlantedEvent:

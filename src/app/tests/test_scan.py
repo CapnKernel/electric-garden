@@ -1,7 +1,12 @@
 """Tests for the barcode scanning views and lookup logic."""
 
+from datetime import date
+
 import pytest
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+from django.utils.formats import date_format
 from pytest_django.asserts import assertContains, assertNotContains
 
 from app.models import Container, Packet, Plant, Planting, PlantingEvent
@@ -89,21 +94,24 @@ class TestLookupBarcode:
             lookup_barcode('garbage')
 
 
-class TestScanPage:
-    """Tests for the full scan page."""
+class TestScanAction:
+    """Scanning is an action: it marks the object and navigates to its page."""
 
-    def test_renders_prefocused_input(self, authed_client):
+    @staticmethod
+    def _scan(client, q):
+        return client.post(reverse('app:scan'), {'q': q}, HTTP_HX_REQUEST='true')
+
+    def test_get_renders_prefocused_input(self, authed_client):
         response = authed_client.get(reverse('app:scan'))
 
         assert response.status_code == 200
         assertContains(response, 'name="q"')
         assertContains(response, 'autofocus')
 
-    def test_navbar_input_posts_to_scan_hxpost(self, authed_client):
+    def test_navbar_input_posts_to_the_scan_action(self, authed_client):
         response = authed_client.get(reverse('app:scan'))
 
-        assertContains(response, f'hx-post="{reverse("app:scan_hxpost")}"')
-        assertContains(response, 'hx-target="#scan-result"')
+        assertContains(response, f'hx-post="{reverse("app:scan")}"')
 
     def test_breadcrumb_is_scan(self, authed_client):
         response = authed_client.get(reverse('app:scan'))
@@ -116,73 +124,62 @@ class TestScanPage:
         assert response.status_code == 302
         assert response['Location'] == reverse('app:plant_detail', kwargs={'pk': plant.pk})
 
-    def test_unknown_barcode_query_sets_error(self, authed_client, db):
+    def test_unknown_barcode_query_redirects_to_search(self, authed_client, db):
         response = authed_client.get(reverse('app:scan'), {'q': 'P=999'})
 
-        assert response.status_code == 200
-        assert response.context['obj'] is None
-        assert response.context['error'] == 'No object found for barcode P=999'
+        assert response.status_code == 302
+        assert response['Location'] == f'{reverse("app:search")}?q=P%3D999'
 
-
-class TestScanHxpost:
-    """Tests for the htmx scan handler.
-
-    A successful scan navigates to the object's detail page, so the browser URL
-    names the object rather than the scan endpoint.
-    """
-
-    @staticmethod
-    def _scan(client, q):
-        return client.post(reverse('app:scan_hxpost'), {'q': q}, HTTP_HX_REQUEST='true')
-
-    def test_redirects_to_plant_detail(self, authed_client, plant):
+    def test_htmx_scan_redirects_to_plant_detail(self, authed_client, plant):
         response = self._scan(authed_client, 'P=1')
 
-        assert response.status_code == 200
         assert response.headers['HX-Redirect'] == reverse('app:plant_detail', kwargs={'pk': plant.pk})
 
-    def test_redirects_to_packet_detail(self, authed_client, packet):
+    def test_htmx_scan_redirects_to_packet_detail(self, authed_client, packet):
         response = self._scan(authed_client, 'P=101')
 
         assert response.headers['HX-Redirect'] == reverse('app:packet_detail', kwargs={'pk': packet.pk})
 
-    def test_redirects_to_planting_detail(self, authed_client, planting):
+    def test_htmx_scan_redirects_to_planting_detail(self, authed_client, planting):
         response = self._scan(authed_client, 'P=1001')
 
         assert response.headers['HX-Redirect'] == reverse('app:planting_detail', kwargs={'pk': planting.pk})
 
-    def test_redirects_to_container_detail(self, authed_client, container):
+    def test_htmx_scan_redirects_to_container_detail(self, authed_client, container):
         response = self._scan(authed_client, 'PC=1')
 
         assert response.headers['HX-Redirect'] == reverse('app:container_detail', kwargs={'pk': container.pk})
 
-    def test_missing_object_sets_error(self, authed_client, db):
+    def test_htmx_unknown_barcode_goes_to_search(self, authed_client, db):
         response = self._scan(authed_client, 'P=999')
 
-        assert response.status_code == 200
-        assert 'HX-Redirect' not in response.headers
-        assertContains(response, 'id="scan-result"')
-        assertNotContains(response, 'name="q"')
-        assert response.context['obj'] is None
-        assert response.context['error'] == 'No object found for barcode P=999'
-
-    def test_error_response_is_fragment_only(self, authed_client, db):
-        response = self._scan(authed_client, 'P=999')
-
-        content = response.content.decode()
-        assert '<!DOCTYPE html>' not in content
-        assert '<html' not in content
-        assert '<body' not in content
-
-    def test_get_not_allowed(self, authed_client):
-        response = authed_client.get(reverse('app:scan_hxpost'))
-
-        assert response.status_code == 405
+        assert response.headers['HX-Redirect'] == f'{reverse("app:search")}?q=P%3D999'
 
     def test_does_not_create_objects(self, authed_client, plant):
         self._scan(authed_client, 'P=1')
 
         assert Plant.objects.count() == 1
+
+
+class TestSearchPage:
+    """Search is a view, so an unmatched scan term gets its own readable URL."""
+
+    def test_shows_matching_groups(self, authed_client, plant):
+        response = authed_client.get(reverse('app:search'), {'q': 'Dwarf'})
+
+        assert [group['title'] for group in response.context['search_results']] == ['Plants']
+        assertContains(response, 'Plants')
+
+    def test_no_match_shows_an_alert(self, authed_client, db):
+        response = authed_client.get(reverse('app:search'), {'q': 'zucchini'})
+
+        assert response.context['error'] == 'No match for zucchini.'
+        assertContains(response, 'No match for zucchini.')
+
+    def test_no_term_prompts_for_one(self, authed_client, db):
+        response = authed_client.get(reverse('app:search'))
+
+        assertContains(response, 'type a search term')
 
 
 class TestMarkScanned:
@@ -204,11 +201,11 @@ class TestMarkScanned:
         plant.refresh_from_db()
         assert plant.last_scanned_at is not None
 
-    def test_scan_hxpost_updates_timestamp(self, authed_client, plant):
+    def test_scan_action_updates_timestamp(self, authed_client, plant):
         assert plant.last_scanned_at is None
 
         authed_client.post(
-            reverse('app:scan_hxpost'),
+            reverse('app:scan'),
             {'q': 'P=1'},
             HTTP_HX_REQUEST='true',
         )
@@ -230,7 +227,7 @@ class TestContainerContentsOrdering:
 
     @staticmethod
     def _events(container):
-        return [item for item in container.contents if item.verbose_name == 'planting event']
+        return list(container.planting_events)
 
     def test_events_grouped_by_planting_then_date(self, container, packet):
         first = Planting.objects.create(id=1001, packet=packet)
@@ -276,7 +273,7 @@ class TestContainerContentsTransplant:
 
     @staticmethod
     def _events(container):
-        return [item for item in container.contents if item.verbose_name == 'planting event']
+        return list(container.planting_events)
 
     def test_shown_in_latest_container_with_all_events(self, container, packet):
         destination = Container.objects.create(id=2, name='Destination')
@@ -303,9 +300,42 @@ class TestContainerContentsTransplant:
             planting=planting, event_type='transplanted', date='2026-02-01', location='B4 4.9-5.45'
         )
 
-        assert container.plantings == []
+        assert not container.plantings.exists()
         assert self._events(container) == []
-        assert planting.location == 'B4 4.9-5.45'
+        assert planting.placement.text == 'B4 4.9-5.45'
+
+
+class TestContainerDetailQueries:
+    """Rendering a container does not query once per contained row."""
+
+    @staticmethod
+    def _query_count(client, container):
+        with CaptureQueriesContext(connection) as ctx:
+            response = client.get(container.detail_url)
+        assert response.status_code == 200
+        return len(ctx.captured_queries)
+
+    def test_query_count_does_not_grow_with_plantings(self, authed_client, container, packet):
+        first = Planting.objects.create(id=1001, packet=packet)
+        PlantingEvent.objects.create(
+            planting=first,
+            event_type=PlantingEvent.EventType.PLANTED,
+            date='2026-01-01',
+            planted_in=container,
+        )
+        one_planting_qc = self._query_count(authed_client, container)
+
+        for pk in (1002, 1003, 1004):
+            planting = Planting.objects.create(id=pk, packet=packet)
+            PlantingEvent.objects.create(
+                planting=planting,
+                event_type=PlantingEvent.EventType.PLANTED,
+                date='2026-01-01',
+                planted_in=container,
+            )
+        four_plantings_qc = self._query_count(authed_client, container)
+
+        assert four_plantings_qc == one_planting_qc
 
 
 class TestContainerDisplayExcludesMovedItems:
@@ -350,7 +380,7 @@ class TestGetAbsoluteUrl:
         assert container.get_absolute_url() == reverse('app:container_detail', kwargs={'pk': container.pk})
 
     def test_detail_url_differs_from_scan_url(self, plant):
-        assert plant.detail_url != plant.scan_url
+        assert plant.detail_url != plant.scan_redirect_url
 
     def test_admin_url_points_to_admin_change_page(self, plant):
         assert plant.admin_url == reverse('admin:app_plant_change', args=[plant.pk])
@@ -470,6 +500,28 @@ class TestDetailViews:
 
         obj.refresh_from_db()
         assert obj.last_scanned_at is None
+
+
+class TestPacketPlantingsPlantedColumn:
+    """The packet's plantings table shows when each planting was planted."""
+
+    def test_shows_planted_date(self, authed_client, packet):
+        planting = Planting.objects.create(id=1001, packet=packet)
+        PlantingEvent.objects.create(
+            planting=planting,
+            event_type=PlantingEvent.EventType.PLANTED,
+            date='2026-02-01',
+        )
+        PlantingEvent.objects.create(
+            planting=planting,
+            event_type=PlantingEvent.EventType.GERMINATED,
+            date='2026-02-05',
+        )
+
+        response = authed_client.get(packet.detail_url)
+
+        assertContains(response, date_format(date(2026, 2, 1)))
+        assertNotContains(response, date_format(date(2026, 2, 5)))
 
 
 class TestPlantPackets:

@@ -141,10 +141,21 @@ class TestTextSearch:
 
 
 class TestScanFallback:
-    """A scan that matches no barcode falls back to text search."""
+    """A scan that matches no barcode is sent to the search page."""
 
-    def test_scan_page_renders_search_results(self, authed_client, garden_data):
+    def test_scan_redirects_an_unmatched_term_to_search(self, authed_client, garden_data):
         response = authed_client.get(reverse('app:scan'), {'q': 'Boltardy'})
+
+        assert response.status_code == 302
+        assert response['Location'] == f'{reverse("app:search")}?q=Boltardy'
+
+    def test_scan_redirects_an_htmx_miss_to_search(self, authed_client, garden_data):
+        response = authed_client.post(reverse('app:scan'), {'q': 'Kath'}, HTTP_HX_REQUEST='true')
+
+        assert response.headers['HX-Redirect'] == f'{reverse("app:search")}?q=Kath'
+
+    def test_search_page_renders_search_results(self, authed_client, garden_data):
+        response = authed_client.get(reverse('app:search'), {'q': 'Boltardy'})
 
         assert response.status_code == 200
         assert response.context['q'] == 'Boltardy'
@@ -152,25 +163,22 @@ class TestScanFallback:
         assert [group['title'] for group in response.context['search_results']] == ['Packets']
         assertContains(response, 'Packets')
 
-    def test_scan_hxpost_renders_search_results(self, authed_client, garden_data):
-        response = authed_client.post(reverse('app:scan_hxpost'), {'q': 'Kath'}, HTTP_HX_REQUEST='true')
+    def test_search_page_matches_event_text(self, authed_client, garden_data):
+        response = authed_client.get(reverse('app:search'), {'q': 'Kath'})
 
-        assert response.status_code == 200
-        assert 'HX-Redirect' not in response.headers
-        assert response.context['error'] is None
         assert [group['title'] for group in response.context['search_results']] == ['Planting events']
         assertContains(response, 'Planting events')
 
     def test_results_link_to_detail_pages(self, authed_client, garden_data):
-        response = authed_client.post(reverse('app:scan_hxpost'), {'q': 'Boltardy'}, HTTP_HX_REQUEST='true')
+        response = authed_client.get(reverse('app:search'), {'q': 'Boltardy'})
 
         assertContains(response, f'href="{garden_data["packet"].detail_url}"')
 
-    def test_no_search_results_keeps_error(self, authed_client, garden_data):
-        response = authed_client.get(reverse('app:scan'), {'q': 'zucchini'})
+    def test_no_search_results_sets_error(self, authed_client, garden_data):
+        response = authed_client.get(reverse('app:search'), {'q': 'zucchini'})
 
         assert response.context['search_results'] == []
-        assert response.context['error'] == 'No object found for barcode zucchini'
+        assert response.context['error'] == 'No match for zucchini.'
 
     def test_matching_barcode_still_redirects(self, authed_client, garden_data):
         response = authed_client.get(reverse('app:scan'), {'q': 'P=1'})

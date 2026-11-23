@@ -60,18 +60,18 @@
                                         onclick="setToday('{{ field.id_for_label }}')">Today</button>
                                 {{ field }}
                             </div>
-                        {% elif field.name == 'planted_in' and form.default_planted_in %}
+                        {% elif field.name == 'planted_in' and form.default_placement.container %}
                             <div class="input-group">
                                 <button type="button"
                                         class="btn btn-primary"
-                                        onclick="document.getElementById('{{ field.id_for_label }}').value = '{{ form.default_planted_in.pk }}'">Copy</button>
+                                        onclick="document.getElementById('{{ field.id_for_label }}').value = '{{ form.default_placement.container.pk }}'">Copy</button>
                                 {{ field }}
                             </div>
-                        {% elif field.name == 'location' and form.default_location %}
+                        {% elif field.name == 'location' and form.default_placement.text %}
                             <div class="input-group">
                                 <button type="button"
                                         class="btn btn-primary"
-                                        onclick="document.getElementById('{{ field.id_for_label }}').value = '{{ form.default_location|escapejs }}'">Copy</button>
+                                        onclick="document.getElementById('{{ field.id_for_label }}').value = '{{ form.default_placement.text|escapejs }}'">Copy</button>
                                 {{ field }}
                             </div>
                         {% else %}

@@ -10,7 +10,7 @@ from django_htmx.http import HttpResponseClientRedirect
 
 from .forms import GerminationRowForm, PlantingCreateForm, PlantingEventForm
 from .models import Container, Packet, Planting, PlantingEvent
-from .scan import render_scan_result
+from .scan import render_detail_fragment
 
 
 def planting_create(request):
@@ -43,14 +43,14 @@ def planting_create(request):
                 )
             with transaction.atomic():
                 planting = form.save()
-                PlantingEvent.objects.create(
+                event = PlantingEvent(
                     planting=planting,
                     event_type=PlantingEvent.EventType.PLANTED,
                     date=form.cleaned_data['date'],
-                    planted_in=form.cleaned_data['planted_in'],
-                    location=form.cleaned_data['location'],
                     notes=form.cleaned_data['notes'],
                 )
+                event.set_placement(form.placement)
+                event.save()
             return redirect(planting.detail_url)
     else:
         form = PlantingCreateForm(packet=packet)
@@ -60,8 +60,8 @@ def planting_create(request):
 def planting_event_create(request, pk):
     """Create a new event for a planting.
 
-    GET returns the event form; POST saves the event and re-renders the scan
-    result for the planting.
+    GET returns the event form; POST saves the event and re-renders the
+    planting's detail card.
     """
     planting = get_object_or_404(Planting, pk=pk)
     if request.method == 'POST':
@@ -71,12 +71,12 @@ def planting_event_create(request, pk):
             event.planting = planting
             event.save()
             planting.mark_scanned()
-            return render_scan_result(request, planting)
+            return render_detail_fragment(request, planting)
     else:
         form = PlantingEventForm(planting=planting)
     return render(
         request,
-        'app/scan.html#planting-event-form',
+        'app/detail.html#planting-event-form',
         {'planting': planting, 'form': form, 'event': None},
     )
 
@@ -84,8 +84,8 @@ def planting_event_create(request, pk):
 def planting_event_edit(request, pk):
     """Edit an existing planting event.
 
-    GET returns the event form; POST saves the event and re-renders the scan
-    result for the event's planting.
+    GET returns the event form; POST saves the event and re-renders the detail
+    card of the event's planting.
     """
     event = get_object_or_404(PlantingEvent, pk=pk)
     if request.method == 'POST':
@@ -95,34 +95,34 @@ def planting_event_edit(request, pk):
             form.save()
             if changed:
                 event.planting.mark_scanned()
-            return render_scan_result(request, event.planting)
+            return render_detail_fragment(request, event.planting)
     else:
         form = PlantingEventForm(instance=event)
     return render(
         request,
-        'app/scan.html#planting-event-form',
+        'app/detail.html#planting-event-form',
         {'planting': event.planting, 'form': form, 'event': event},
     )
 
 
 @require_POST
 def planting_event_delete(request, pk):
-    """Delete a planting event and re-render the scan result for its planting."""
+    """Delete a planting event and re-render the detail card for its planting."""
     event = get_object_or_404(PlantingEvent, pk=pk)
     planting = event.planting
     event.delete()
-    return render_scan_result(request, planting)
+    return render_detail_fragment(request, planting)
 
 
 def _container_plantings(container):
     """Return the plantings currently planted in ``container``.
 
-    A planting is "in" the container when its most recent located event (see
-    ``Container.plantings``) records this container.  A later transplant, into
-    another container or to a free-text location, means it is no longer listed
-    here.
+    A planting is "in" the container when its most recent located event records
+    this container (see ``PlantingManager.in_container``).  A later transplant,
+    into another container or to a free-text location, means it is no longer
+    listed here.
     """
-    return container.plantings
+    return Planting.objects.in_container(container)
 
 
 def _germination_rows(plantings):
@@ -149,7 +149,7 @@ def _germination(request, obj, plantings, germination_url, heading):
     ``germination_url`` is the form's submit target and ``heading`` titles the
     page.  GET renders a full page with one row per planting.  POST saves the
     germination state of each planting; on success it redirects to ``obj``'s
-    scan page, and on validation failure it re-renders the form fragment (via
+    detail page, and on validation failure it re-renders the form fragment (via
     htmx) so nothing entered is lost.
     """
     if request.method == 'POST':
@@ -221,41 +221,12 @@ def _detail_redirect(request, obj):
 def _save_germination(plantings, forms):
     """Persist the germination state from ``forms`` onto ``plantings``.
 
-    A planting whose row is checked gets its ``germinated`` score set and a
-    ``germinated`` event created (or updated) dated today.  A planting whose
-    row is unchecked has its ``germinated`` cleared and any existing
-    ``germinated`` event removed.
+    Each row is written through ``Planting.set_germination``, which owns the
+    pairing of the ``germinated`` score with its event.
     """
     today = timezone.localdate()
     with transaction.atomic():
         for planting, form in zip(plantings, forms):
             germinated = form.cleaned_data['germinated']
             score = form.cleaned_data['score'] if germinated else None
-            changed = planting.germinated != score
-            planting.germinated = score
-            planting.save(update_fields=['germinated'])
-
-            event = (
-                planting.events.filter(event_type=PlantingEvent.EventType.GERMINATED).order_by('-date', '-pk').first()
-            )
-            if germinated:
-                if event is None:
-                    # A germinated event records only when germination was seen;
-                    # the container and location stay on the planted event (see
-                    # PlantingEvent.clean).
-                    PlantingEvent.objects.create(
-                        planting=planting,
-                        event_type=PlantingEvent.EventType.GERMINATED,
-                        date=today,
-                    )
-                    changed = True
-                elif event.date != today:
-                    event.date = today
-                    event.save(update_fields=['date'])
-                    changed = True
-            elif event is not None:
-                event.delete()
-                changed = True
-
-            if changed:
-                planting.mark_scanned()
+            planting.set_germination(score, day=today)

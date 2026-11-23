@@ -1,0 +1,12 @@
+{% comment %}
+Renders a ``Placement``: the container as a link, the free-text detail, both, or
+a dash when neither is set.  Pass it as ``placement``.
+{% endcomment %}
+{% if placement.is_empty %}
+    <span class="text-muted">-</span>
+{% else %}
+    {% if placement.container %}
+        <a href="{{ placement.container.detail_url }}">{{ placement.container.name }}</a>
+    {% endif %}
+    {% if placement.text %}{% if placement.container %} · {% endif %}{{ placement.text }}{% endif %}
+{% endif %}

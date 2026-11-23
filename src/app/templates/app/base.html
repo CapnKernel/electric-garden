@@ -114,20 +114,23 @@
 
         <!-- Main Content -->
         <div class="container mt-4">
-            <!-- Breadcrumbs -->
-            {% block breadcrumbs %}
-            {% endblock breadcrumbs %}
+            {# The content region: an htmx navigation swaps this and pushes a URL. #}
+            <div id="main">
+                <!-- Breadcrumbs -->
+                {% block breadcrumbs %}
+                {% endblock breadcrumbs %}
 
-            {% heading %}
-                {% block h1 %}
-                {% endblock h1 %}
-            {% endheading %}
+                {% heading %}
+                    {% block h1 %}
+                    {% endblock h1 %}
+                {% endheading %}
 
-            {% block body %}
-                <p>
-                    Classy content goes here.  Override the <tt>body</tt> block!
-                </p>
-            {% endblock body %}
+                {% block body %}
+                    <p>
+                        Classy content goes here.  Override the <tt>body</tt> block!
+                    </p>
+                {% endblock body %}
+            </div>
         </div>
 
         <!-- Bootstrap JS -->

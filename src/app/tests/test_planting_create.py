@@ -87,7 +87,7 @@ class TestPlantingCreatePage:
 
         form = response.context['form']
         assert form['location'].value() is None
-        assert form.default_location == last_location
+        assert form.default_placement.text == last_location
         assertContains(response, f'Location last: {last_location}')
         assertContains(response, '>Copy</button>')
 
@@ -98,7 +98,7 @@ class TestPlantingCreatePage:
 
         form = response.context['form']
         assert form['planted_in'].value() is None
-        assert form.default_planted_in == container
+        assert form.default_placement.container == container
         assertContains(response, f'Planted in last: {container}')
         assertContains(response, '>Copy</button>')
 
@@ -106,34 +106,16 @@ class TestPlantingCreatePage:
         response = authed_client.get(reverse('app:planting_create'))
 
         form = response.context['form']
-        assert form.default_planted_in is None
-        assert form.default_location is None
+        assert form.default_placement.is_empty
         assert form['planted_in'].label == 'Planted in'
         assert form['location'].label == 'Location'
         assert '>Copy</button>' not in response.content.decode()
 
 
-class TestLastLocation:
-    """``PlantingEvent.last_location`` returns the most recent free-text location."""
+class TestLastPlacement:
+    """``PlantingEvent.last_placement`` is the whole placement of the latest event that has one."""
 
-    def test_returns_most_recent_location(self, db, packet):
-        planting = Planting.objects.create(packet=packet)
-        for date, location in (('2026-01-01', 'Old spot'), ('2026-02-01', 'New spot')):
-            PlantingEvent.objects.create(
-                planting=planting,
-                event_type=PlantingEvent.EventType.PLANTED
-                if date == '2026-01-01'
-                else PlantingEvent.EventType.TRANSPLANTED,
-                date=date,
-                location=location,
-            )
-
-        assert PlantingEvent.last_location() == 'New spot'
-
-    def test_returns_none_without_a_location(self, db):
-        assert PlantingEvent.last_location() is None
-
-    def test_last_planted_in_returns_most_recent_container(self, db, packet):
+    def test_returns_the_most_recent_placement(self, db, packet):
         planting = Planting.objects.create(packet=packet)
         first = Container.objects.create(name='First pot')
         second = Container.objects.create(name='Second pot')
@@ -142,18 +124,30 @@ class TestLastLocation:
             event_type=PlantingEvent.EventType.PLANTED,
             date='2026-01-01',
             planted_in=first,
+            location='Old spot',
         )
         PlantingEvent.objects.create(
             planting=planting,
             event_type=PlantingEvent.EventType.TRANSPLANTED,
             date='2026-02-01',
             planted_in=second,
+            location='New spot',
         )
 
-        assert PlantingEvent.last_planted_in() == second
+        placement = PlantingEvent.last_placement()
 
-    def test_last_planted_in_is_none_without_a_container(self, db):
-        assert PlantingEvent.last_planted_in() is None
+        assert placement.container == second
+        assert placement.text == 'New spot'
+
+    def test_returns_an_empty_placement_without_one(self, db, packet):
+        planting = Planting.objects.create(packet=packet)
+        PlantingEvent.objects.create(
+            planting=planting,
+            event_type=PlantingEvent.EventType.PLANTED,
+            date='2026-01-01',
+        )
+
+        assert PlantingEvent.last_placement().is_empty
 
 
 class TestPlantingCreatePost:

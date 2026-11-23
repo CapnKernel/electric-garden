@@ -1,13 +1,19 @@
-"""Barcode scanning views for the garden app.
+"""Barcode scanning and detail-page views for the garden app.
 
 Barcodes are strings of the form ``P=<int>`` (for plants, packets or
-plantings) or ``PC=<int>`` (for containers).  A scan records the scan time on
-the object via ``mark_scanned()`` and then redirects to that object's detail
-page, so the browser URL always names the object being viewed.
+plantings) or ``PC=<int>`` (for containers).  Scanning is an action: it records
+the scan time on the object and then navigates to its detail page, so the
+browser URL always names the object being viewed.
+
+A string that matches no barcode is treated as a search term, and the browser
+is sent to the search page.  Detail pages are rendered by :func:`detail_view`.
 """
 
+from urllib.parse import urlencode
+
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_GET, require_POST
+from django.urls import reverse
+from django.views.decorators.http import require_GET, require_http_methods
 from django_htmx.http import HttpResponseClientRedirect
 
 from .models import Container, Packet, Plant, Planting
@@ -53,89 +59,71 @@ def scan_and_mark(barcode):
     return obj
 
 
-def _search_context(q, exc):
-    """Return the scan-result context for a string that matched no barcode.
+def search_url(term):
+    """URL of the search page for ``term``."""
+    return f'{reverse("app:search")}?{urlencode({"q": term})}'
 
-    ``q`` is used as a text-search term, and its results are shown instead of
-    an error.  ``exc``'s message is reported only when the search finds nothing
-    either.
+
+def _navigate(request, url):
+    """Send the browser to ``url``, letting htmx drive the navigation if it can."""
+    if request.htmx:
+        return HttpResponseClientRedirect(url)
+    return redirect(url)
+
+
+@require_http_methods(['GET', 'POST'])
+def scan_action(request):
+    """Resolve a scanned barcode and navigate to where it belongs.
+
+    ``GET /scan/`` renders the scanner.  Otherwise the scanned value is read
+    from the POST (the htmx form) or from ``?q=`` (links, barcode scanners and
+    browsers without htmx): a barcode marks its object and navigates to the
+    detail page, while anything else is treated as a search term for
+    :func:`search_page`.
     """
-    search_results = text_search(q)
-    return {
-        'q': q,
-        'obj': None,
-        'error': None if search_results else str(exc),
-        'search_results': search_results,
-    }
+    raw = request.POST.get('q') if request.method == 'POST' else request.GET.get('q')
+    barcode = (raw or '').strip()
+    if not barcode and request.method == 'GET':
+        return render(request, 'app/scan.html')
 
-
-def render_scan_result(request, obj):
-    """Render the ``scan-result`` fragment for a scanned object.
-
-    Used by the planting-event CRUD views to re-render the scan result after a
-    change, so the page updates in place via htmx.
-    """
-    return render(request, 'app/scan.html#scan-result', {'q': obj.barcode, 'obj': obj, 'error': None})
+    try:
+        obj = scan_and_mark(barcode)
+    except BarcodeNotFound:
+        return _navigate(request, search_url(barcode))
+    return _navigate(request, obj.detail_url)
 
 
 @require_GET
-def render_detail(request, model, pk):
-    """Render the full page for ``model`` instance ``pk`` without recording a scan.
+def search_page(request):
+    """Search the garden's free-text fields and show the matches.
+
+    A scanned string that is not a barcode arrives here as ``?q=``.  With no
+    term the page prompts for one; an unmatched term shows an alert instead of
+    empty groups.
+    """
+    term = request.GET.get('q', '').strip()
+    results = text_search(term)
+    context = {
+        'q': term,
+        'search_results': results,
+        'error': f'No match for {term}.' if term and not results else None,
+    }
+    return render(request, 'app/search.html', context)
+
+
+def detail_view(request, model, pk, fragment=False):
+    """Render the detail page for ``model`` instance ``pk`` without recording a scan.
 
     This backs the per-object detail URLs in ``urls.py`` (see
     ``BarcodedBase.detail_url``), so simply viewing an object does not change
-    its ``last_scanned_at``.
+    its ``last_scanned_at``.  ``fragment=True`` returns only the detail card, for
+    the htmx swaps that follow an inline change.
     """
     obj = get_object_or_404(model, pk=pk)
-    return render(request, 'app/scan.html', {'q': obj.barcode, 'obj': obj, 'error': None})
+    template = 'app/detail.html#detail' if fragment else 'app/detail.html'
+    return render(request, template, {'obj': obj})
 
 
-@require_GET
-def scan_page(request):
-    """Full page presenting a prefocused barcode input.
-
-    Without a barcode it renders an empty input, which posts to
-    :func:`scan_hxpost` via htmx.
-
-    With a ``q`` query parameter (e.g. ``/scan/?q=P%3D1111``) the value is
-    scanned and the browser is redirected to the object's detail page, so the
-    address bar names the object rather than the scan endpoint.  A value that
-    matches no barcode is used as a text-search term, and the matching objects
-    are shown instead of an error.
-    """
-    barcode = request.GET.get('q', '').strip()
-    context = {
-        'q': barcode,
-        'obj': None,
-        'error': None,
-        'search_results': [],
-    }
-    if barcode:
-        try:
-            return redirect(scan_and_mark(barcode).detail_url)
-        except BarcodeNotFound as exc:
-            context = _search_context(barcode, exc)
-
-    return render(request, 'app/scan.html', context)
-
-
-@require_POST
-def scan_hxpost(request):
-    """Handle a scanned barcode from the htmx input.
-
-    On success the object is looked up and marked as scanned, and htmx is told
-    to navigate to its detail page (see :func:`render_detail`) so the URL
-    matches the object shown.  A string that matches no barcode is used as a
-    text-search term; the matching objects are returned in the
-    ``scan-result`` fragment instead of an error.
-    """
-    barcode = request.POST.get('q', '').strip()
-    try:
-        obj = scan_and_mark(barcode)
-    except BarcodeNotFound as exc:
-        context = _search_context(barcode, exc)
-    else:
-        return HttpResponseClientRedirect(obj.detail_url)
-
-    return render(request, 'app/scan.html#scan-result', context)
-
+def render_detail_fragment(request, obj):
+    """Re-render one object's detail card, e.g. after a planting event change."""
+    return render(request, 'app/detail.html#detail', {'obj': obj})
