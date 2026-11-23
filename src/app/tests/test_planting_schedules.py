@@ -375,6 +375,8 @@ def test_plant_now_groups_rows_by_status(authed_client, plant, frozen_today):
     assert content.index('Already planted') < content.index('Cabbage')
     assertContains(response, 'since 19 Oct')
     assertContains(response, 'next 16 Nov')
+    assertContains(response, 'since 19 Oct (3 weeks ago)')
+    assertContains(response, 'next 16 Nov (planted 1 week ago)')
 
 
 def test_plant_now_shows_a_placeholder_when_nothing_is_plantable(authed_client, db, frozen_today):

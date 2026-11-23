@@ -1,13 +1,13 @@
 """Tests for the garden template filters and tags."""
 
-from datetime import timedelta
+from datetime import date, timedelta
 
 import pytest
 from django.template import Context, Engine, Template, TemplateSyntaxError
 from django.utils import timezone
 
 from app.models import Packet, Plant
-from app.templatetags.garden_tags import friendly_date, join_model_ids
+from app.templatetags.garden_tags import ago, friendly_date, join_model_ids
 
 
 def _render(source):
@@ -92,6 +92,34 @@ def test_join_model_ids_rejects_mixed_models(db):
 
     with pytest.raises(TemplateSyntaxError):
         join_model_ids([plant, packet])
+
+
+@pytest.fixture
+def frozen_today(monkeypatch):
+    """Freeze the date ``ago`` measures from."""
+    today = date(2026, 11, 9)
+    monkeypatch.setattr('app.templatetags.garden_tags.timezone.localdate', lambda: today)
+    return today
+
+
+@pytest.mark.parametrize(
+    ('day', 'expected'),
+    [
+        (date(2026, 11, 9), 'today'),
+        (date(2026, 11, 8), '1 day ago'),
+        (date(2026, 11, 6), '3 days ago'),
+        (date(2026, 11, 2), '1 week ago'),
+        (date(2026, 10, 29), '1 week 4 days ago'),
+        (date(2026, 10, 19), '3 weeks ago'),
+        (date(2026, 11, 10), ''),
+    ],
+)
+def test_ago_renders_weeks_and_days(frozen_today, day, expected):
+    assert ago(day) == expected
+
+
+def test_ago_renders_empty_for_none(frozen_today):
+    assert ago(None) == ''
 
 
 def test_today_renders_as_today():

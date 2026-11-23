@@ -3,6 +3,7 @@
 {% load static %}
 {% load navtag %}
 {% load app_tags %}
+{% load garden_tags %}
 
 {% block title %}
     Electric Garden
@@ -77,25 +78,8 @@
          hx-trigger="load">
         {% partialdef plant-now %}
             <div class="col-12">
-                <h2 class="h4">Plant this week</h2>
+                <h2 class="h4">Plant this week <span class="text-muted">ISO week {{ week }}</span></h2>
                 {% if due_rows or planted_rows or overdue_rows %}
-                    <p class="text-muted">ISO week {{ week }}</p>
-                    {% if due_rows %}
-                        <h3 class="h6">Plant now</h3>
-                        <ul class="list-group mb-3">
-                            {% for row in due_rows %}
-                                <li class="list-group-item">
-                                    <strong>{{ row.schedule.plant.name }}</strong>
-                                    — {{ row.schedule.label }}
-                                    <span class="text-muted">({{ row.schedule.month_hint }})</span>
-                                    <span class="ms-2 text-nowrap">
-                                        <a href="{% url 'app:plant_detail' row.schedule.plant.pk %}">Plant</a>
-                                        <a href="{% url 'admin:app_plantingschedule_change' row.schedule.pk %}">Admin</a>
-                                    </span>
-                                </li>
-                            {% endfor %}
-                        </ul>
-                    {% endif %}
                     {% if overdue_rows %}
                         <h3 class="h6">Overdue</h3>
                         <ul class="list-group mb-3">
@@ -105,8 +89,24 @@
                                     — {{ row.schedule.label }}
                                     <span class="text-muted">({{ row.schedule.month_hint }})</span>
                                     {% if row.due %}
-                                        <span class="badge text-bg-danger">since {{ row.due|date:"j M" }}</span>
+                                        <span class="badge text-bg-danger">since {{ row.due|date:"j M" }} ({{ row.due|ago }})</span>
                                     {% endif %}
+                                    <span class="ms-2 text-nowrap">
+                                        <a href="{% url 'app:plant_detail' row.schedule.plant.pk %}">Plant</a>
+                                        <a href="{% url 'admin:app_plantingschedule_change' row.schedule.pk %}">Admin</a>
+                                    </span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                    {% if due_rows %}
+                        <h3 class="h6">Plant now</h3>
+                        <ul class="list-group mb-3">
+                            {% for row in due_rows %}
+                                <li class="list-group-item">
+                                    <strong>{{ row.schedule.plant.name }}</strong>
+                                    — {{ row.schedule.label }}
+                                    <span class="text-muted">({{ row.schedule.month_hint }})</span>
                                     <span class="ms-2 text-nowrap">
                                         <a href="{% url 'app:plant_detail' row.schedule.plant.pk %}">Plant</a>
                                         <a href="{% url 'admin:app_plantingschedule_change' row.schedule.pk %}">Admin</a>
@@ -124,9 +124,9 @@
                                     — {{ row.schedule.label }}
                                     <span class="text-muted">({{ row.schedule.month_hint }})</span>
                                     {% if row.due %}
-                                        <span class="badge text-bg-secondary">next {{ row.due|date:"j M" }}</span>
+                                        <span class="badge text-bg-secondary">next {{ row.due|date:"j M" }}{% if row.last %} (planted {{ row.last|ago }}){% endif %}</span>
                                     {% elif row.last %}
-                                        <span class="badge text-bg-secondary">planted {{ row.last|date:"j M" }}</span>
+                                        <span class="badge text-bg-secondary">planted {{ row.last|date:"j M" }} ({{ row.last|ago }})</span>
                                     {% endif %}
                                     <span class="ms-2 text-nowrap">
                                         <a href="{% url 'app:plant_detail' row.schedule.plant.pk %}">Plant</a>

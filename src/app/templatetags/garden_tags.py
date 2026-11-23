@@ -29,6 +29,25 @@ def join_model_ids(value, arg=','):
 
 
 @register.filter
+def ago(value):
+    """Say how long before today that ``value`` was, e.g. '3 weeks 2 days ago'.
+
+    A date today renders as ``today``; a future date (or no date) renders as an
+    empty string.
+    """
+    if value is None:
+        return ''
+    days = (timezone.localdate() - value).days
+    if days < 0:
+        return ''
+    if days == 0:
+        return 'today'
+    weeks, days = divmod(days, 7)
+    parts = [f'{count} {unit}{"s" if count > 1 else ""}' for count, unit in ((weeks, 'week'), (days, 'day')) if count]
+    return f'{" ".join(parts)} ago'
+
+
+@register.filter
 def friendly_date(value):
     """Render a date for display.
 
