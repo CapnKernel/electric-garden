@@ -74,11 +74,28 @@
                             </li>
                         </ul>
                     {% endblock nav %}
-                    {% block barcode_form %}
+                    {% block scan_field %}
                         <div class="flex-grow-1 mx-2">
-                            {% include "app/partials/scan_input.html" %}
+                            {% comment %}
+                            The scan/search field.  Pages that ask for text input blank
+                            the ``scan_field`` block, so the field is not shown there.
+                            {% endcomment %}
+                            <form class="d-flex w-100"
+                                  method="get"
+                                  action="{% url 'app:scan' %}"
+                                  hx-post="{% url 'app:scan' %}"
+                                  hx-on::after-request="document.getElementById('navbar-barcode').focus()">
+                                <input class="form-control me-2"
+                                       type="text"
+                                       id="navbar-barcode"
+                                       name="q"
+                                       placeholder="Scan barcode or search..."
+                                       aria-label="Scan barcode or search"
+                                       autocomplete="off"
+                                       autofocus>
+                            </form>
                         </div>
-                    {% endblock barcode_form %}
+                    {% endblock scan_field %}
                     <ul class="navbar-nav flex-nowrap">
                         {% if user.is_authenticated %}
                             <li class="nav-item d-none d-lg-block">
