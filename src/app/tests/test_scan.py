@@ -101,27 +101,26 @@ class TestScanAction:
     def _scan(client, q):
         return client.post(reverse('app:scan'), {'q': q}, HTTP_HX_REQUEST='true')
 
-    def test_get_renders_prefocused_input(self, authed_client):
+    def test_get_without_a_term_is_a_bad_request(self, authed_client):
         response = authed_client.get(reverse('app:scan'))
 
-        assert response.status_code == 200
-        assertContains(response, 'name="q"')
-        assertContains(response, 'autofocus')
+        assert response.status_code == 400
+
+    def test_blank_term_is_a_bad_request(self, authed_client):
+        assert authed_client.get(reverse('app:scan'), {'q': ''}).status_code == 400
+        assert self._scan(authed_client, '   ').status_code == 400
 
     def test_navbar_input_posts_to_the_scan_action(self, authed_client):
-        response = authed_client.get(reverse('app:scan'))
+        response = authed_client.get(reverse('app:top'))
 
         assertContains(response, f'hx-post="{reverse("app:scan")}"')
+        assertContains(response, 'name="q"')
+        assertContains(response, 'autofocus')
 
     def test_text_input_pages_hide_the_scan_field(self, authed_client):
         response = authed_client.get(reverse('app:planting_create'))
 
         assertNotContains(response, 'id="navbar-barcode"')
-
-    def test_breadcrumb_is_scan(self, authed_client):
-        response = authed_client.get(reverse('app:scan'))
-
-        assertContains(response, '<li class="breadcrumb-item active" aria-current="page">Scan</li>', html=True)
 
     def test_barcode_query_redirects_to_detail_page(self, authed_client, plant):
         response = authed_client.get(reverse('app:scan'), {'q': plant.barcode})
@@ -181,10 +180,9 @@ class TestSearchPage:
         assert response.context['error'] == 'No match for zucchini.'
         assertContains(response, 'No match for zucchini.')
 
-    def test_no_term_prompts_for_one(self, authed_client, db):
-        response = authed_client.get(reverse('app:search'))
-
-        assertContains(response, 'type a search term')
+    def test_no_term_is_a_bad_request(self, authed_client, db):
+        assert authed_client.get(reverse('app:search')).status_code == 400
+        assert authed_client.get(reverse('app:search'), {'q': ''}).status_code == 400
 
 
 class TestMarkScanned:
@@ -471,7 +469,7 @@ class TestDetailViews:
         assertContains(response, f'href="{reverse(admin_url_name, args=[obj.pk])}"')
 
     def test_admin_link_defaults_to_admin_index_without_object(self, authed_client):
-        response = authed_client.get(reverse('app:scan'))
+        response = authed_client.get(reverse('app:search'), {'q': 'zucchini'})
 
         assertContains(response, f'href="{reverse("admin:index")}"')
 

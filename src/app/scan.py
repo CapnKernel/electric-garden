@@ -11,6 +11,7 @@ is sent to the search page.  Detail pages are rendered by :func:`detail_view`.
 
 from urllib.parse import urlencode
 
+from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_http_methods
@@ -75,16 +76,16 @@ def _navigate(request, url):
 def scan_action(request):
     """Resolve a scanned barcode and navigate to where it belongs.
 
-    ``GET /scan/`` renders the scanner.  Otherwise the scanned value is read
-    from the POST (the htmx form) or from ``?q=`` (links, barcode scanners and
-    browsers without htmx): a barcode marks its object and navigates to the
-    detail page, while anything else is treated as a search term for
-    :func:`search_page`.
+    The value is read from the POST (the navbar field) or from ``?q=`` (links,
+    barcode scanners and browsers without htmx).  A barcode marks its object and
+    navigates to the detail page, while anything else is treated as a search
+    term for :func:`search_page`.  Scanning is an action, so a request with
+    nothing to resolve is a bad request: there is no scan page.
     """
     raw = request.POST.get('q') if request.method == 'POST' else request.GET.get('q')
     barcode = (raw or '').strip()
-    if not barcode and request.method == 'GET':
-        return render(request, 'app/scan.html')
+    if not barcode:
+        return HttpResponseBadRequest('No barcode or search term provided.')
 
     try:
         obj = scan_and_mark(barcode)
@@ -97,16 +98,19 @@ def scan_action(request):
 def search_page(request):
     """Search the garden's free-text fields and show the matches.
 
-    A scanned string that is not a barcode arrives here as ``?q=``.  With no
-    term the page prompts for one; an unmatched term shows an alert instead of
-    empty groups.
+    A scanned string that is not a barcode arrives here as ``?q=``.  An
+    unmatched term shows an alert instead of empty groups; a request with no
+    term is a bad request, since the page exists only to show results.
     """
     term = request.GET.get('q', '').strip()
+    if not term:
+        return HttpResponseBadRequest('No search term provided.')
+
     results = text_search(term)
     context = {
         'q': term,
         'search_results': results,
-        'error': f'No match for {term}.' if term and not results else None,
+        'error': f'No match for {term}.' if not results else None,
     }
     return render(request, 'app/search.html', context)
 

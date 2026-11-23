@@ -29,9 +29,7 @@
 
 {% block body %}
     <div id="search-results">
-        {% if not q %}
-            <p class="text-muted">Scan a barcode, or type a search term and press Enter.</p>
-        {% elif error %}
+        {% if error %}
             <div class="alert alert-danger" role="alert">{{ error }}</div>
         {% else %}
             <p class="text-muted">
