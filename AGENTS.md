@@ -63,6 +63,7 @@ Do not offer to run all tests unless asked.
 - If a helper function is only used by one other function, nest the helper within the caller.
 - Use of inline htmx fragments using `partialdef` is preferred over discrete partial files.
 - As a guide, unit tests which are testing logic should check the response's content, rather than looking for strings in the rendered HTML.  Unit tests which are testing template functionality should check the response's rendered content, usually with `assertContains`.
+- Do not offer to run tests, ruff or djLint unless asked with a request such as "test and lint".
 
 ## Important
 
