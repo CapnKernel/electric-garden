@@ -18,6 +18,7 @@
                                 <th>Barcode</th>
                                 <th>Brand</th>
                                 <th>Full name</th>
+                                <th>Location</th>
                                 <th>Expiry</th>
                                 <th>Plantings</th>
                             </tr>
@@ -30,6 +31,7 @@
                                     </td>
                                     <td>{{ packet.brand|default:"" }}</td>
                                     <td>{{ packet.full_name|default:"" }}</td>
+                                    <td>{% include "app/partials/placement.html" with placement=packet.placement %}</td>
                                     <td>{{ packet.expiry|default:"" }}</td>
                                     <td>{{ packet.planting_count }}</td>
                                 </tr>

@@ -263,7 +263,11 @@ class Plant(DeletedModel, BarcodedBase):
     @property
     def packets(self):
         """Return the plant's packets, deleted ones last, each with a count of its plantings."""
-        return self.packet_set.annotate(planting_count=models.Count('planting')).order_by('deleted', 'pk')
+        return (
+            self.packet_set.select_related('container')
+            .annotate(planting_count=models.Count('planting'))
+            .order_by('deleted', 'pk')
+        )
 
     @property
     def plant_weeks_str(self):
