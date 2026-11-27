@@ -196,12 +196,12 @@ class Container(DeletedModel, BarcodedBase):
 
     @property
     def packets(self):
-        """The packets stored in this container."""
-        return self.packet_set.all()
+        """The packets stored in this container, deleted ones included."""
+        return self.packet_set.order_by('deleted', '-pk')
 
     @property
     def plantings(self):
-        """The plantings currently growing in this container.
+        """The plantings currently growing in this container, deleted ones included.
 
         ``planted_in`` and ``location`` are the two halves of a single
         location, so a planting's location is whatever its most recent located
@@ -210,13 +210,17 @@ class Container(DeletedModel, BarcodedBase):
         transplant into another container moves it, and a transplant to a
         free-text ``location`` leaves it in no container at all.
 
+        Deleted plantings are included so the container's detail card can show
+        them struck through; the germination page asks
+        ``PlantingManager.in_container`` to leave them out.
+
         See ``PlantingManager.in_container`` for the query.
         """
-        return Planting.objects.in_container(self)
+        return Planting.objects.in_container(self, include_deleted=True)
 
     @property
     def planting_events(self):
-        """Every event of every planting currently in this container.
+        """Every event of every planting currently in this container, deleted ones included.
 
         Ordered by planting and then date, so the container view can show one
         row per planting listing its planted, germinated and transplanted events
@@ -258,8 +262,8 @@ class Plant(DeletedModel, BarcodedBase):
 
     @property
     def packets(self):
-        """Return the plant's active packets, each with a count of its plantings."""
-        return self.packet_set.filter(deleted=False).annotate(planting_count=models.Count('planting')).order_by('pk')
+        """Return the plant's packets, deleted ones last, each with a count of its plantings."""
+        return self.packet_set.annotate(planting_count=models.Count('planting')).order_by('deleted', 'pk')
 
     @property
     def plant_weeks_str(self):
@@ -554,13 +558,16 @@ class Packet(DeletedModel, BarcodedBase):
 class PlantingManager(BarcodeManager):
     """Manager for plantings, adding container membership lookup."""
 
-    def in_container(self, container):
+    def in_container(self, container, include_deleted=False):
         """Plantings whose latest located event names ``container``.
 
         A location is one ``Placement``, so the latest event with any placement
         decides where a planting is: a later event naming another container
         moves it, and one that gives only free text leaves it in no container at
         all.
+
+        Deleted plantings are left out unless ``include_deleted`` is set, which
+        the container's detail card uses so it can show them struck through.
         """
         latest_placed_event = (
             PlantingEvent.objects.filter(planting=models.OuterRef('pk'))
@@ -568,11 +575,12 @@ class PlantingManager(BarcodeManager):
             .annotate(recency=PLANTING_EVENT_RECENCY)
             .order_by('-date', '-recency', '-pk')
         )
+        plantings = self.all() if include_deleted else self.filter(deleted=False)
         return (
-            self.filter(deleted=False)
-            .annotate(placement_container=models.Subquery(latest_placed_event.values('planted_in_id')[:1]))
+            plantings.annotate(placement_container=models.Subquery(latest_placed_event.values('planted_in_id')[:1]))
             .filter(placement_container=container.pk)
             .select_related('packet__plant')
+            .order_by('deleted', 'pk')
         )
 
 

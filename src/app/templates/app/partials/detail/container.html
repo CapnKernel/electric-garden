@@ -29,7 +29,7 @@ once (see ``Container.planting_events``).
                         </thead>
                         <tbody>
                             {% for packet in packets %}
-                                <tr>
+                                <tr class="{% if packet.deleted %}text-decoration-line-through{% endif %}">
                                     <td>
                                         <a href="{{ packet.detail_url }}">{{ packet.barcode }}</a>
                                     </td>
@@ -80,7 +80,7 @@ once (see ``Container.planting_events``).
                             {% regroup events by planting_id as groups %}
                             {% for group in groups %}
                                 {% with planting=group.list.0.planting %}
-                                    <tr>
+                                    <tr class="{% if planting.deleted %}text-decoration-line-through{% endif %}">
                                         <td>
                                             <a href="{{ planting.detail_url }}">{{ planting.barcode }}</a>
                                         </td>

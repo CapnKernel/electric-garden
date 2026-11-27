@@ -2,14 +2,16 @@
 <tr>
     <th scope="row">Plant</th>
     <td>
-        <a href="{{ obj.plant.detail_url }}">{{ obj.plant.name }}</a>
+        <a href="{{ obj.plant.detail_url }}"
+           class="{% if obj.plant.deleted %}text-decoration-line-through{% endif %}">{{ obj.plant.name }}</a>
     </td>
 </tr>
 {% if obj.placement.container %}
     <tr>
         <th scope="row">Container</th>
         <td>
-            <a href="{{ obj.placement.container.detail_url }}">{{ obj.placement.container.name }}</a>
+            <a href="{{ obj.placement.container.detail_url }}"
+               class="{% if obj.placement.container.deleted %}text-decoration-line-through{% endif %}">{{ obj.placement.container.name }}</a>
         </td>
     </tr>
 {% endif %}

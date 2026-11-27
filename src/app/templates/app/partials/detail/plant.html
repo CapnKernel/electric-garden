@@ -24,7 +24,7 @@
                         </thead>
                         <tbody>
                             {% for packet in packets %}
-                                <tr>
+                                <tr class="{% if packet.deleted %}text-decoration-line-through{% endif %}">
                                     <td>
                                         <a href="{{ packet.detail_url }}">{{ packet.barcode }}</a>
                                     </td>

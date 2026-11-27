@@ -4,7 +4,7 @@ import pytest
 from django.core.exceptions import ValidationError
 from pytest_django.asserts import assertContains
 
-from app.models import Container, Packet, Plant, Planting
+from app.models import Container, Packet, Plant, Planting, PlantingEvent
 
 MODEL_NAMES = ('container', 'plant', 'packet', 'planting')
 
@@ -80,3 +80,21 @@ def test_deleted_detail_page_marks_the_object(authed_client, plant):
     assertContains(response, f'<s>{plant}</s>')
     assertContains(response, '>Deleted</span>')
     assertContains(response, 'wrong variety')
+
+
+def test_container_card_shows_deleted_planting_struck_through(authed_client, plant):
+    """A container's planting list keeps deleted plantings, struck through."""
+    container = Container.objects.create(id=1, name='Blue ribbon 1')
+    packet = Packet.objects.create(id=101, plant=plant, container=container)
+    planting = Planting.objects.create(id=1001, packet=packet, deleted=True)
+    PlantingEvent.objects.create(
+        planting=planting,
+        event_type=PlantingEvent.EventType.PLANTED,
+        date='2026-01-01',
+        planted_in=container,
+    )
+
+    response = authed_client.get(container.detail_url)
+
+    assertContains(response, planting.barcode)
+    assertContains(response, '<tr class="text-decoration-line-through">')

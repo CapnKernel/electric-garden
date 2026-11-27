@@ -6,7 +6,8 @@ a dash when neither is set.  Pass it as ``placement``.
     <span class="text-muted">-</span>
 {% else %}
     {% if placement.container %}
-        <a href="{{ placement.container.detail_url }}">{{ placement.container.name }}</a>
+        <a href="{{ placement.container.detail_url }}"
+           class="{% if placement.container.deleted %}text-decoration-line-through{% endif %}">{{ placement.container.name }}</a>
     {% endif %}
     {% if placement.text %}{% if placement.container %} · {% endif %}{{ placement.text }}{% endif %}
 {% endif %}

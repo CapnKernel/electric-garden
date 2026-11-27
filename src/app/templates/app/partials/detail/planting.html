@@ -13,13 +13,15 @@
                 <tr>
                     <th scope="row">Plant</th>
                     <td>
-                        <a href="{{ obj.packet.plant.detail_url }}">{{ obj.packet.plant.name }}</a>
+                        <a href="{{ obj.packet.plant.detail_url }}"
+                           class="{% if obj.packet.plant.deleted %}text-decoration-line-through{% endif %}">{{ obj.packet.plant.name }}</a>
                     </td>
                 </tr>
                 <tr>
                     <th scope="row">Packet</th>
                     <td>
-                        <a href="{{ obj.packet.detail_url }}">{{ obj.packet.barcode }} {{ obj.packet.label }}</a>
+                        <a href="{{ obj.packet.detail_url }}"
+                           class="{% if obj.packet.deleted %}text-decoration-line-through{% endif %}">{{ obj.packet.barcode }} {{ obj.packet.label }}</a>
                     </td>
                 </tr>
                 <tr>

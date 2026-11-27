@@ -553,9 +553,10 @@ class TestPlantPackets:
         assertContains(response, '<td>2</td>', html=True)
         assertContains(response, '<td>1</td>', html=True)
 
-    def test_excludes_deleted_packets(self, authed_client, plant):
+    def test_shows_deleted_packets_struck_through(self, authed_client, plant):
         deleted_packet = Packet.objects.create(id=103, plant=plant, deleted=True)
 
         response = authed_client.get(plant.detail_url)
 
-        assertNotContains(response, deleted_packet.barcode)
+        assertContains(response, deleted_packet.barcode)
+        assertContains(response, '<tr class="text-decoration-line-through">')

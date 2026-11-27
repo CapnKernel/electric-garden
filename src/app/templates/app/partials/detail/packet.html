@@ -27,7 +27,7 @@
                         </thead>
                         <tbody>
                             {% for planting in plantings %}
-                                <tr>
+                                <tr class="{% if planting.deleted %}text-decoration-line-through{% endif %}">
                                     <td>
                                         <a href="{{ planting.detail_url }}">{{ planting.barcode }}</a>
                                     </td>
