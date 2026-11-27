@@ -43,7 +43,7 @@
                     <div class="card-body">
                         <ul class="list-unstyled mb-0">
                             {% for item in group.items %}
-                                <li>
+                                <li class="{% if item.deleted %}text-decoration-line-through{% endif %}">
                                     <a href="{{ item.url }}">{{ item.label }}</a>
                                     {% if item.detail %}<span class="text-muted">— {{ item.detail }}</span>{% endif %}
                                 </li>

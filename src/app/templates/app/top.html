@@ -39,6 +39,10 @@
                     <div class="card-body">
                         {% card_title %}Containers{% endcard_title %}
                         <p class="card-text display-6">{{ container_count }}</p>
+                        {% if container_deleted_count %}
+                            <p class="mb-0 fs-4 fw-semibold text-decoration-line-through">{{ container_deleted_count }}</p>
+                            <p class="mb-0 small text-muted">Deleted</p>
+                        {% endif %}
                     </div>
                 </div>
             </a>
@@ -48,6 +52,10 @@
                     <div class="card-body">
                         {% card_title %}Plants{% endcard_title %}
                         <p class="card-text display-6">{{ plant_count }}</p>
+                        {% if plant_deleted_count %}
+                            <p class="mb-0 fs-4 fw-semibold text-decoration-line-through">{{ plant_deleted_count }}</p>
+                            <p class="mb-0 small text-muted">Deleted</p>
+                        {% endif %}
                     </div>
                 </div>
             </a>
@@ -67,6 +75,10 @@
                                 <p class="mb-0 small text-muted">Unplanted</p>
                             </div>
                         </div>
+                        {% if packet_deleted_count %}
+                            <p class="mb-0 fs-4 fw-semibold text-decoration-line-through">{{ packet_deleted_count }}</p>
+                            <p class="mb-0 small text-muted">Deleted</p>
+                        {% endif %}
                     </div>
                 </div>
             </a>
@@ -76,6 +88,10 @@
                     <div class="card-body">
                         {% card_title %}Plantings{% endcard_title %}
                         <p class="card-text display-6">{{ planting_count }}</p>
+                        {% if planting_deleted_count %}
+                            <p class="mb-0 fs-4 fw-semibold text-decoration-line-through">{{ planting_deleted_count }}</p>
+                            <p class="mb-0 small text-muted">Deleted</p>
+                        {% endif %}
                     </div>
                 </div>
             </a>

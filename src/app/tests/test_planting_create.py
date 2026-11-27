@@ -61,6 +61,15 @@ class TestPlantingCreatePage:
         assert list(queryset) == [packet]
         assert deleted not in queryset
 
+    def test_container_select_excludes_deleted_containers(self, authed_client, container):
+        deleted = Container.objects.create(id=2, name='Deleted pot', deleted=True)
+
+        response = authed_client.get(reverse('app:planting_create'))
+
+        queryset = response.context['form'].fields['planted_in'].queryset
+        assert list(queryset) == [container]
+        assert deleted not in queryset
+
     def test_packet_get_arg_disables_select(self, authed_client, packet):
         response = authed_client.get(reverse('app:planting_create'), {'packet': packet.pk})
 
@@ -196,6 +205,17 @@ class TestPlantingCreatePost:
         )
 
         assert Planting.objects.get().packet == packet
+
+    def test_deleted_container_still_accepted_when_posted(self, authed_client, packet):
+        deleted = Container.objects.create(id=2, name='Deleted pot', deleted=True)
+
+        response = authed_client.post(
+            reverse('app:planting_create'),
+            self._data(packet, deleted),
+        )
+
+        assert response.status_code == 302
+        assert PlantingEvent.objects.get().planted_in == deleted
 
     def test_packet_get_arg_is_used_when_packet_is_not_posted(self, authed_client, packet):
         url = f'{reverse("app:planting_create")}?packet={packet.pk}'

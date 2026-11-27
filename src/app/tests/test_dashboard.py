@@ -5,7 +5,7 @@ from urllib.parse import urlencode
 
 import pytest
 from django.urls import reverse
-from pytest_django.asserts import assertContains, assertRedirects, assertTemplateUsed
+from pytest_django.asserts import assertContains, assertNotContains, assertRedirects, assertTemplateUsed
 
 from app.models import Container, Packet, Plant, Planting, PlantingEvent, PlantingSchedule
 
@@ -36,6 +36,7 @@ def garden_data(db):
 
     Container.objects.create(id=1, name='Blue ribbon 1')
     Container.objects.create(id=2, name='Blue ribbon 2')
+    Container.objects.create(id=3, name='Deleted container', deleted=True)
 
 
 def test_requires_login(client, db):
@@ -83,6 +84,37 @@ def test_partial_counts_exclude_deleted(authed_client, garden_data):
     assert response.context['packet_count'] == 3
     assert response.context['planting_count'] == 1
     assert response.context['container_count'] == 2
+
+
+def test_partial_counts_deleted(authed_client, garden_data):
+    """Each card also carries the count of deleted rows for its model."""
+    response = authed_client.get(reverse('app:dash_stats'))
+
+    assert response.context['plant_deleted_count'] == 1
+    assert response.context['packet_deleted_count'] == 1
+    assert response.context['planting_deleted_count'] == 1
+    assert response.context['container_deleted_count'] == 1
+
+
+def test_deleted_counts_are_struck_through(authed_client, garden_data):
+    """The deleted subnumber is struck through, as it is not a live count."""
+    response = authed_client.get(reverse('app:dash_stats'))
+
+    assertContains(
+        response,
+        '<p class="mb-0 fs-4 fw-semibold text-decoration-line-through">1</p>',
+        count=4,
+        html=True,
+    )
+    assertContains(response, '<p class="mb-0 small text-muted">Deleted</p>', count=4, html=True)
+
+
+def test_deleted_counts_are_hidden_when_zero(authed_client, db):
+    """With nothing deleted, the subnumber and its caption are not rendered."""
+    response = authed_client.get(reverse('app:dash_stats'))
+
+    assertNotContains(response, 'text-decoration-line-through')
+    assertNotContains(response, '<p class="mb-0 small text-muted">Deleted</p>', html=True)
 
 
 def test_packet_counts_split_planted_from_unplanted(authed_client, garden_data):

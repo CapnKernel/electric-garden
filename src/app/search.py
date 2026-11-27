@@ -37,9 +37,11 @@ def text_search(term):
     """Return the objects matching ``term`` grouped by model.
 
     Each group is a dict with a ``title`` and a list of ``items``; an item has a
-    ``label``, a ``url`` for the object's detail page, and a ``detail`` string
-    giving the matching context.  Groups with no matches are omitted, so an
-    empty list means nothing was found.
+    ``label``, a ``url`` for the object's detail page, a ``detail`` string
+    giving the matching context, and ``deleted``, which marks a match that has
+    been deleted.  Deleted items are included, so nothing is hidden from a
+    search, but they sort after the live ones in each group.  Groups with no
+    matches are omitted, so an empty list means nothing was found.
     """
     pattern = search_pattern(term)
     if pattern is None:
@@ -47,49 +49,60 @@ def text_search(term):
 
     groups = []
 
-    plants = Plant.objects.filter(deleted=False).filter(Q(code__iregex=pattern) | Q(name__iregex=pattern))
+    plants = Plant.objects.filter(Q(code__iregex=pattern) | Q(name__iregex=pattern)).order_by('deleted', 'name')
     if plants:
         groups.append(
             {
                 'title': 'Plants',
-                'items': [{'label': plant.name, 'url': plant.detail_url, 'detail': plant.code} for plant in plants],
+                'items': [
+                    {'label': plant.name, 'url': plant.detail_url, 'detail': plant.code, 'deleted': plant.deleted}
+                    for plant in plants
+                ],
             }
         )
 
     packets = (
-        Packet.objects.filter(deleted=False)
-        .filter(Q(full_name__iregex=pattern) | Q(notes__iregex=pattern))
+        Packet.objects.filter(Q(full_name__iregex=pattern) | Q(notes__iregex=pattern))
         .select_related('plant')
-        .order_by('plant__name', 'pk')
+        .order_by('deleted', 'plant__name', 'pk')
     )
     if packets:
         groups.append(
             {
                 'title': 'Packets',
                 'items': [
-                    {'label': packet.label, 'url': packet.detail_url, 'detail': packet.brand or ''}
+                    {
+                        'label': packet.label,
+                        'url': packet.detail_url,
+                        'detail': packet.brand or '',
+                        'deleted': packet.deleted,
+                    }
                     for packet in packets
                 ],
             }
         )
 
-    containers = Container.objects.filter(name__iregex=pattern)
+    containers = Container.objects.filter(name__iregex=pattern).order_by('deleted', 'name')
     if containers:
         groups.append(
             {
                 'title': 'Containers',
                 'items': [
-                    {'label': container.name, 'url': container.detail_url, 'detail': container.barcode}
+                    {
+                        'label': container.name,
+                        'url': container.detail_url,
+                        'detail': container.barcode,
+                        'deleted': container.deleted,
+                    }
                     for container in containers
                 ],
             }
         )
 
     events = (
-        PlantingEvent.objects.filter(planting__deleted=False)
-        .filter(Q(location__iregex=pattern) | Q(notes__iregex=pattern))
+        PlantingEvent.objects.filter(Q(location__iregex=pattern) | Q(notes__iregex=pattern))
         .select_related('planting__packet__plant')
-        .order_by('-date', 'pk')
+        .order_by('planting__deleted', '-date', 'pk')
     )
     if events:
         groups.append(
@@ -103,6 +116,7 @@ def text_search(term):
                         ),
                         'url': event.planting.detail_url,
                         'detail': event.placement.text or event.notes or '',
+                        'deleted': event.planting.deleted,
                     }
                     for event in events
                 ],

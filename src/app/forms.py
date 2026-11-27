@@ -1,6 +1,7 @@
 from typing import ClassVar
 
 from django import forms
+from django.db.models import Q
 from django.utils import timezone
 
 from .models import Container, Packet, Planting, PlantingEvent
@@ -145,7 +146,7 @@ class PlantingCreateForm(forms.ModelForm):
         widget=forms.DateInput(attrs={'autocomplete': 'off'}, format='%Y-%m-%d'),
     )
     planted_in = forms.ModelChoiceField(
-        queryset=Container.objects.order_by('name'),
+        queryset=Container.objects.filter(deleted=False).order_by('name'),
         required=False,
     )
     location = forms.CharField(max_length=100, required=False)
@@ -166,6 +167,18 @@ class PlantingCreateForm(forms.ModelForm):
             self.fields['packet'].disabled = True
         else:
             self.fields['packet'].queryset = Packet.objects.filter(deleted=False).select_related('plant')
+        # Deleted containers are not offered for new plantings, but a container
+        # the form was already rendered with (and has been deleted since) must
+        # still validate, so it stays in the queryset.
+        selected_container = self['planted_in'].value()
+        try:
+            selected_container = int(selected_container)
+        except (TypeError, ValueError):
+            selected_container = None
+        if selected_container is not None:
+            self.fields['planted_in'].queryset = Container.objects.filter(
+                Q(deleted=False) | Q(pk=selected_container)
+            ).order_by('name')
         for name, css_class in self.widget_classes:
             widget = self.fields[name].widget
             existing = widget.attrs.get('class', '')

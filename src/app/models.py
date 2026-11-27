@@ -147,7 +147,33 @@ class BarcodedBase(models.Model):
         return ''
 
 
-class Container(BarcodedBase):
+class DeletedModel(models.Model):
+    """Abstract base for models that are soft-deleted rather than removed.
+
+    ``deleted`` marks an item as no longer in use, and ``deleted_reason``
+    records why.  A reason only makes sense on a deleted item, so saving a live
+    item (``deleted`` false) that carries one is an error.
+    """
+
+    deleted = models.BooleanField(default=False)
+    deleted_reason = models.CharField(max_length=255, blank=True, help_text='Why this was deleted')
+
+    class Meta:
+        abstract = True
+
+    def clean(self):
+        """Reject a deleted reason on an item that is not deleted."""
+        super().clean()
+        if not self.deleted and self.deleted_reason:
+            raise ValidationError({'deleted_reason': 'A reason can only be recorded on a deleted item.'})
+
+    def save(self, *args, **kwargs):
+        """Check the deleted flag and reason agree before writing them."""
+        self.clean()
+        super().save(*args, **kwargs)
+
+
+class Container(DeletedModel, BarcodedBase):
     barcode_start = 1
     prefix = 'PC='
     detail_url_name = 'container_detail'
@@ -203,13 +229,12 @@ class Container(BarcodedBase):
         )
 
 
-class Plant(BarcodedBase):
+class Plant(DeletedModel, BarcodedBase):
     barcode_start = 0  # There won't actually be a 0, this just makes it match better with the others
     detail_url_name = 'plant_detail'
     detail_template = 'app/partials/detail/plant.html'
 
     code = models.CharField(max_length=10, unique=True)  # Example: 'BR' or '豆DGD'
-    deleted = models.BooleanField(default=False)
     name = models.CharField(max_length=100)  # Example: 'Dwarf bean, Gourmet Delight'
     spacing = models.CharField(max_length=10, null=True, blank=True)  # Example: '15' for planting 15cm apart
     germination = models.CharField(
@@ -488,14 +513,13 @@ class PlantingSchedule(models.Model):
         return f'{self.plant.name}: {self.label}'
 
 
-class Packet(BarcodedBase):
+class Packet(DeletedModel, BarcodedBase):
     barcode_start = 100
     detail_url_name = 'packet_detail'
     detail_template = 'app/partials/detail/packet.html'
 
     plant = models.ForeignKey(Plant, on_delete=models.PROTECT)
     container = models.ForeignKey(Container, on_delete=models.PROTECT, null=True, blank=True)
-    deleted = models.BooleanField(default=False)
     # location = models.CharField(max_length=10, null=True, blank=True)  # Example: 'T=1062'
     brand = models.CharField(max_length=100, null=True, blank=True)  # Example: "Mr Fothergill's"
     expiry = models.CharField(null=True, blank=True)  # Example: 'Aug-20'
@@ -552,7 +576,7 @@ class PlantingManager(BarcodeManager):
         )
 
 
-class Planting(BarcodedBase):
+class Planting(DeletedModel, BarcodedBase):
     barcode_start = 1000
     detail_url_name = 'planting_detail'
     detail_template = 'app/partials/detail/planting.html'
@@ -560,7 +584,6 @@ class Planting(BarcodedBase):
     objects = PlantingManager()
 
     packet = models.ForeignKey(Packet, on_delete=models.PROTECT)
-    deleted = models.BooleanField(default=False)
     germinated = models.PositiveSmallIntegerField(
         null=True,
         blank=True,

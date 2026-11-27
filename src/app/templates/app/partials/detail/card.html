@@ -7,10 +7,20 @@ model-specific rows inside the table.
 {% endcomment %}
 <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
-        {% card_title %}{{ obj }}{% endcard_title %}
-        <span class="badge bg-secondary">{{ obj.model_label }}</span>
+        {% if obj.deleted %}
+            {% card_title %}<s>{{ obj }}</s>{% endcard_title %}
+        {% else %}
+            {% card_title %}{{ obj }}{% endcard_title %}
+        {% endif %}
+        <span class="d-flex gap-2">
+            {% if obj.deleted %}<span class="badge text-bg-danger">Deleted</span>{% endif %}
+            <span class="badge bg-secondary">{{ obj.model_label }}</span>
+        </span>
     </div>
     <div class="card-body">
+        {% if obj.deleted %}
+            <p class="text-muted">Deleted: {{ obj.deleted_reason|default:"no reason recorded" }}</p>
+        {% endif %}
         <table class="table table-sm table-striped mb-0">
             <tbody>
                 <tr>

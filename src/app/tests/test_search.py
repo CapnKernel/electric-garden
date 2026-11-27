@@ -133,8 +133,17 @@ class TestTextSearch:
     def test_matches_multi_word_phrase(self, garden_data):
         assert text_search('blue ribbon')[0]['title'] == 'Containers'
 
-    def test_excludes_deleted_objects(self, garden_data):
-        assert text_search('gone') == []
+    def test_includes_deleted_objects_marked_deleted(self, garden_data):
+        groups = text_search('gone')
+
+        assert [group['title'] for group in groups] == ['Plants', 'Packets']
+        assert all(item['deleted'] for group in groups for item in group['items'])
+
+    def test_live_items_sort_before_deleted_ones(self, garden_data):
+        items = text_search('Beetroot')[0]['items']
+
+        assert [item['label'] for item in items] == ['Beetroot', 'Beetroot gone']
+        assert [item['deleted'] for item in items] == [False, True]
 
     def test_no_match_returns_empty(self, garden_data):
         assert text_search('zucchini') == []
@@ -173,6 +182,16 @@ class TestScanFallback:
         response = authed_client.get(reverse('app:search'), {'q': 'Boltardy'})
 
         assertContains(response, f'href="{garden_data["packet"].detail_url}"')
+
+    def test_deleted_results_are_struck_through(self, authed_client, garden_data):
+        response = authed_client.get(reverse('app:search'), {'q': 'gone'})
+
+        assertContains(response, '<li class="text-decoration-line-through">')
+
+    def test_live_results_are_not_struck_through(self, authed_client, garden_data):
+        response = authed_client.get(reverse('app:search'), {'q': 'Beetroot'})
+
+        assertContains(response, '<li class="">')
 
     def test_no_search_results_sets_error(self, authed_client, garden_data):
         response = authed_client.get(reverse('app:search'), {'q': 'zucchini'})

@@ -15,17 +15,25 @@ def top(request):
 
 @require_GET
 def dash_stats(request):
-    """HTMX endpoint returning the dashboard statistics fragment."""
+    """HTMX endpoint returning the dashboard statistics fragment.
+
+    Each card shows a live count plus, as a struck-through subnumber, how many
+    of that model have been deleted.
+    """
     packets = Packet.objects.filter(deleted=False)
     packet_count = packets.count()
     planted_packet_count = packets.filter(planting__deleted=False).distinct().count()
     ctx = {
         'plant_count': Plant.objects.filter(deleted=False).count(),
+        'plant_deleted_count': Plant.objects.filter(deleted=True).count(),
         'packet_count': packet_count,
+        'packet_deleted_count': Packet.objects.filter(deleted=True).count(),
         'planted_packet_count': planted_packet_count,
         'unplanted_packet_count': packet_count - planted_packet_count,
         'planting_count': Planting.objects.filter(deleted=False).count(),
-        'container_count': Container.objects.count(),
+        'planting_deleted_count': Planting.objects.filter(deleted=True).count(),
+        'container_count': Container.objects.filter(deleted=False).count(),
+        'container_deleted_count': Container.objects.filter(deleted=True).count(),
         'schedule_counts': PlantingSchedule.dashboard_counts(),
     }
 

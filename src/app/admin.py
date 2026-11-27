@@ -65,8 +65,14 @@ class ContainerPlantingEventInline(admin.TabularInline):
 
 @admin.register(Container)
 class ContainerAdmin(BarcodeIdAdminMixin, admin.ModelAdmin):
-    list_display = ('barcode', 'name', 'scan_link')
+    list_display = ('barcode', 'name', 'deleted', 'deleted_reason', 'scan_link')
+    list_filter = ('deleted',)
     search_fields = ('name',)
+    fieldsets = (
+        (None, {'fields': ('barcode', 'name')}),
+        ('Deletion', {'fields': ('deleted', 'deleted_reason')}),
+        ('Scanning', {'fields': ('last_scanned_at',)}),
+    )
     inlines = (PacketInline, ContainerPlantingEventInline)
 
 
@@ -135,8 +141,14 @@ class PlantingScheduleInline(admin.TabularInline):
 
 @admin.register(Plant)
 class PlantAdmin(BarcodeIdAdminMixin, admin.ModelAdmin):
-    list_display = ('barcode', 'code', 'name', 'plant_weeks_str', 'deleted', 'scan_link')
+    list_display = ('barcode', 'code', 'name', 'plant_weeks_str', 'deleted', 'deleted_reason', 'scan_link')
+    list_filter = ('deleted',)
     search_fields = ('name', 'code')
+    fieldsets = (
+        (None, {'fields': ('barcode', 'code', 'name', 'spacing', 'germination', 'harvest')}),
+        ('Deletion', {'fields': ('deleted', 'deleted_reason')}),
+        ('Scanning', {'fields': ('last_scanned_at',)}),
+    )
     inlines = (PlantingScheduleInline,)
 
 
@@ -173,7 +185,13 @@ class PlantingScheduleAdmin(admin.ModelAdmin):
 
 @admin.register(Packet)
 class PacketAdmin(BarcodeIdAdminMixin, admin.ModelAdmin):
-    list_display = ('barcode', 'plant', 'brand', 'full_name', 'deleted', 'scan_link')
+    list_display = ('barcode', 'plant', 'brand', 'full_name', 'deleted', 'deleted_reason', 'scan_link')
+    list_filter = ('deleted',)
+    fieldsets = (
+        (None, {'fields': ('barcode', 'plant', 'container', 'brand', 'full_name', 'expiry', 'notes')}),
+        ('Deletion', {'fields': ('deleted', 'deleted_reason')}),
+        ('Scanning', {'fields': ('last_scanned_at',)}),
+    )
 
 
 class PlantingEventInline(admin.TabularInline):
@@ -187,10 +205,23 @@ class PlantingEventInline(admin.TabularInline):
 
 @admin.register(Planting)
 class PlantingAdmin(BarcodeIdAdminMixin, admin.ModelAdmin):
-    list_display = ('barcode', 'packet', 'planted_date', 'germinated', 'deleted', 'last_scanned_at', 'scan_link')
+    list_display = (
+        'barcode',
+        'packet',
+        'planted_date',
+        'germinated',
+        'deleted',
+        'deleted_reason',
+        'last_scanned_at',
+        'scan_link',
+    )
     list_filter = ('deleted',)
     search_fields = ('packet__plant__name', 'events__location', 'events__notes')
-    fieldsets = ((None, {'fields': ('barcode', 'packet', 'germinated', 'deleted', 'last_scanned_at')}),)
+    fieldsets = (
+        (None, {'fields': ('barcode', 'packet', 'germinated')}),
+        ('Deletion', {'fields': ('deleted', 'deleted_reason')}),
+        ('Scanning', {'fields': ('last_scanned_at',)}),
+    )
     readonly_fields = ('barcode', 'last_scanned_at')
     inlines = (PlantingEventInline,)
 
