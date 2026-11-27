@@ -60,22 +60,74 @@
             {% endpartialdef messages-partial %}
         </div>
 
-        <!-- Navigation.  Never collapses: the scan field is always visible. -->
-        <nav class="navbar navbar-expand navbar-dark bg-primary">
+        <!-- Navigation.  Never collapses: the scan field is always visible.  On
+             small screens the admin and account links move into a hamburger
+             menu so the scan field keeps as much width as possible. -->
+        <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
             <div class="container flex-nowrap">
                 <a class="navbar-brand text-nowrap" href="{% url 'app:top' %}">Electric Garden</a>
                 {% block navbar %}
-                    {% block nav %}
-                        {% nav text ' active' %}
-                        <ul class="navbar-nav">
-                            <li class="nav-item">
-                                <a class="nav-link text-nowrap"
-                                   href="{% block item-admin-link %}{% if obj %}{{ obj.admin_url }}{% else %}{% url 'admin:index' %}{% endif %}{% endblock item-admin-link %}">Admin</a>
-                            </li>
-                        </ul>
-                    {% endblock nav %}
+                    {% comment %}
+                    Visually first (order-first) but inside the navbar block, so
+                    pages that blank the block (e.g. the login page) get no menu.
+                    {% endcomment %}
+                    <button class="navbar-toggler order-first me-1 border-0"
+                            type="button"
+                            data-bs-toggle="offcanvas"
+                            data-bs-target="#navMenu"
+                            aria-controls="navMenu"
+                            aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    {% comment %}
+                    One definition of the admin and account links.  Below ``lg``
+                    this is a drawer; from ``lg`` up it is displayed with
+                    ``display: contents`` (see style.css) so its children join the
+                    navbar's flex row, where ``order-lg-*`` places them either
+                    side of the scan field.
+                    {% endcomment %}
+                    <div class="offcanvas-lg offcanvas-start navbar-dark bg-primary"
+                         tabindex="-1"
+                         id="navMenu"
+                         aria-labelledby="navMenuLabel">
+                        <div class="offcanvas-header">
+                            <h5 class="offcanvas-title" id="navMenuLabel">Menu</h5>
+                            <button type="button"
+                                    class="btn-close btn-close-white"
+                                    data-bs-dismiss="offcanvas"
+                                    aria-label="Close"></button>
+                        </div>
+                        <div class="offcanvas-body">
+                            {% block nav %}
+                                {% nav text ' active' %}
+                                <ul class="navbar-nav order-lg-1">
+                                    <li class="nav-item">
+                                        <a class="nav-link text-nowrap"
+                                           href="{% block item-admin-link %}{% if obj %}{{ obj.admin_url }}{% else %}{% url 'admin:index' %}{% endif %}{% endblock item-admin-link %}">Admin</a>
+                                    </li>
+                                </ul>
+                            {% endblock nav %}
+                            <ul class="navbar-nav flex-nowrap mt-3 mt-lg-0 ms-lg-auto order-lg-3">
+                                {% if user.is_authenticated %}
+                                    <li class="nav-item">
+                                        <span class="navbar-text me-3 text-nowrap">Welcome, {{ user.preferred_name|default:user.email }}</span>
+                                    </li>
+                                    <li class="nav-item">
+                                        <form method="post" action="{% url 'logout' %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-outline-light btn-sm text-nowrap">Logout</button>
+                                        </form>
+                                    </li>
+                                {% else %}
+                                    <li class="nav-item">
+                                        <a class="nav-link text-nowrap" href="{% url 'login' %}">Login</a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </div>
                     {% block scan_field %}
-                        <div class="flex-grow-1 mx-2">
+                        <div class="flex-grow-1 mx-1 mx-lg-2 scan-field order-lg-2">
                             {% comment %}
                             The scan/search field.  Pages that ask for text input blank
                             the ``scan_field`` block, so the field is not shown there.
@@ -85,7 +137,7 @@
                                   action="{% url 'app:scan' %}"
                                   hx-post="{% url 'app:scan' %}"
                                   hx-on::after-request="document.getElementById('navbar-barcode').focus()">
-                                <input class="form-control me-2"
+                                <input class="form-control me-0 me-lg-2"
                                        type="text"
                                        id="navbar-barcode"
                                        name="q"
@@ -96,23 +148,6 @@
                             </form>
                         </div>
                     {% endblock scan_field %}
-                    <ul class="navbar-nav flex-nowrap">
-                        {% if user.is_authenticated %}
-                            <li class="nav-item d-none d-lg-block">
-                                <span class="navbar-text me-3 text-nowrap">Welcome, {{ user.preferred_name|default:user.email }}</span>
-                            </li>
-                            <li class="nav-item">
-                                <form method="post" action="{% url 'logout' %}" class="d-inline">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-outline-light btn-sm text-nowrap">Logout</button>
-                                </form>
-                            </li>
-                        {% else %}
-                            <li class="nav-item">
-                                <a class="nav-link text-nowrap" href="{% url 'login' %}">Login</a>
-                            </li>
-                        {% endif %}
-                    </ul>
                 {% endblock navbar %}
             </div>
         </nav>

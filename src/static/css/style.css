@@ -8,6 +8,41 @@
     font-size: 1.5rem;
 }
 
+/* On small screens the hamburger and brand take as little width as possible so
+   the scan field gets the rest. */
+@media (max-width: 991.98px) {
+    .navbar-brand {
+        font-size: 1.05rem;
+        margin-right: 0.5rem;
+    }
+
+    .navbar-toggler {
+        padding: 0.125rem 0.375rem;
+        font-size: 1rem;
+    }
+
+    .navbar > .container {
+        padding-right: 0.25rem;
+        padding-left: 0.25rem;
+    }
+}
+
+/* From lg up the navbar menu is not a drawer: let its children join the
+   navbar's flex row so the scan field can sit between the admin and account
+   links without a second copy of the markup. */
+@media (min-width: 992px) {
+    .navbar .offcanvas-lg,
+    .navbar .offcanvas-lg .offcanvas-body {
+        display: contents;
+    }
+}
+
+/* Allow the scan field to shrink below the input's default content width. */
+.navbar .scan-field,
+.navbar .scan-field .form-control {
+    min-width: 0;
+}
+
 /* Toast container z-index */
 .toast-z-index {
     z-index: 11;
