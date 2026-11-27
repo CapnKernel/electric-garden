@@ -29,11 +29,20 @@
 {% block body %}
     <p>Let's track some plants.</p>
 
-    <div class="row mt-4"
+    <div class="row mt-4 g-3"
          hx-get="{% url 'app:dash_stats' %}"
          hx-trigger="load">
         {% partialdef dash-stats-cards %}
-            <a class="col-md-3 text-decoration-none"
+            <a class="col-6 col-lg text-decoration-none"
+               href="{% url 'admin:app_container_changelist' %}">
+                <div class="card text-center inventory-card h-100">
+                    <div class="card-body">
+                        {% card_title %}Containers{% endcard_title %}
+                        <p class="card-text display-6">{{ container_count }}</p>
+                    </div>
+                </div>
+            </a>
+            <a class="col-6 col-lg text-decoration-none"
                href="{% url 'admin:app_plant_changelist' %}">
                 <div class="card text-center inventory-card h-100">
                     <div class="card-body">
@@ -42,16 +51,26 @@
                     </div>
                 </div>
             </a>
-            <a class="col-md-3 text-decoration-none"
+            <a class="col-6 col-lg text-decoration-none"
                href="{% url 'admin:app_packet_changelist' %}">
                 <div class="card text-center inventory-card h-100">
                     <div class="card-body">
                         {% card_title %}Packets{% endcard_title %}
                         <p class="card-text display-6">{{ packet_count }}</p>
+                        <div class="row row-cols-2 g-1">
+                            <div class="col">
+                                <p class="mb-0 fs-4 fw-semibold">{{ planted_packet_count }}</p>
+                                <p class="mb-0 small text-muted">Planted</p>
+                            </div>
+                            <div class="col">
+                                <p class="mb-0 fs-4 fw-semibold text-muted">{{ unplanted_packet_count }}</p>
+                                <p class="mb-0 small text-muted">Unplanted</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </a>
-            <a class="col-md-3 text-decoration-none"
+            <a class="col-6 col-lg text-decoration-none"
                href="{% url 'admin:app_planting_changelist' %}">
                 <div class="card text-center inventory-card h-100">
                     <div class="card-body">
@@ -60,12 +79,30 @@
                     </div>
                 </div>
             </a>
-            <a class="col-md-3 text-decoration-none"
-               href="{% url 'admin:app_container_changelist' %}">
+            <a class="col-6 col-lg text-decoration-none"
+               href="{% url 'app:schedule' %}">
                 <div class="card text-center inventory-card h-100">
                     <div class="card-body">
-                        {% card_title %}Containers{% endcard_title %}
-                        <p class="card-text display-6">{{ container_count }}</p>
+                        {% card_title %}Schedules{% endcard_title %}
+                        <p class="card-text display-6">{{ schedule_counts.total }}</p>
+                        <div class="row row-cols-2 g-1">
+                            <div class="col">
+                                <p class="mb-0 fs-4 fw-semibold text-danger">{{ schedule_counts.overdue }}</p>
+                                <p class="mb-0 small text-muted">Overdue</p>
+                            </div>
+                            <div class="col">
+                                <p class="mb-0 fs-4 fw-semibold">{{ schedule_counts.due }}</p>
+                                <p class="mb-0 small text-muted">Due this week</p>
+                            </div>
+                            <div class="col">
+                                <p class="mb-0 fs-4 fw-semibold">{{ schedule_counts.planted }}</p>
+                                <p class="mb-0 small text-muted">Just planted</p>
+                            </div>
+                            <div class="col">
+                                <p class="mb-0 fs-4 fw-semibold text-muted">{{ schedule_counts.inactive }}</p>
+                                <p class="mb-0 small text-muted">Inactive</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </a>

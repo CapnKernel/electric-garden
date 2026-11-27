@@ -16,11 +16,17 @@ def top(request):
 @require_GET
 def dash_stats(request):
     """HTMX endpoint returning the dashboard statistics fragment."""
+    packets = Packet.objects.filter(deleted=False)
+    packet_count = packets.count()
+    planted_packet_count = packets.filter(planting__deleted=False).distinct().count()
     ctx = {
         'plant_count': Plant.objects.filter(deleted=False).count(),
-        'packet_count': Packet.objects.filter(deleted=False).count(),
+        'packet_count': packet_count,
+        'planted_packet_count': planted_packet_count,
+        'unplanted_packet_count': packet_count - planted_packet_count,
         'planting_count': Planting.objects.filter(deleted=False).count(),
         'container_count': Container.objects.count(),
+        'schedule_counts': PlantingSchedule.dashboard_counts(),
     }
 
     return render(request, 'app/top.html#dash-stats-cards', ctx)

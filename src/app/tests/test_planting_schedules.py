@@ -370,8 +370,8 @@ def test_plant_now_groups_rows_by_status(authed_client, plant, frozen_today):
     response = authed_client.get(reverse('app:plant_now'))
 
     content = response.content.decode()
-    assert content.index('Plant now') < content.index('Beetroot') < content.index('Overdue')
-    assert content.index('Overdue') < content.index('Lettuce') < content.index('Already planted')
+    assert content.index('Overdue') < content.index('Lettuce') < content.index('Plant now')
+    assert content.index('Plant now') < content.index('Beetroot') < content.index('Already planted')
     assert content.index('Already planted') < content.index('Cabbage')
     assertContains(response, 'since 19 Oct')
     assertContains(response, 'next 16 Nov')

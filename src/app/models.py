@@ -426,6 +426,28 @@ class PlantingSchedule(models.Model):
             return self.Status.PLANTED
         return self.Status.DUE
 
+    @classmethod
+    def dashboard_counts(cls, day=None):
+        """Count schedules for the dashboard, keyed by status plus ``inactive``.
+
+        Active schedules whose window includes the ISO week of ``day`` are
+        classified with ``plant_status``.  Everything else -- inactive schedules,
+        windows outside the current week, and schedules for deleted plants -- is
+        counted under ``inactive``, because none of them can be planted now.
+        """
+        day = day or timezone.localdate()
+        week = day.isocalendar().week
+        counts = {status.value: 0 for status in cls.Status}
+        counts['inactive'] = 0
+        counts['total'] = 0
+        for schedule in cls.objects.filter(plant__deleted=False).select_related('plant'):
+            counts['total'] += 1
+            if not schedule.active or not schedule.includes_week(week):
+                counts['inactive'] += 1
+            else:
+                counts[schedule.plant_status(day).value] += 1
+        return counts
+
     def span_weeks(self):
         """Number of ISO weeks the window covers, counting the wrapped year end.
 
